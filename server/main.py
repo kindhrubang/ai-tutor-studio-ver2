@@ -1,12 +1,9 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Body
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.db.database import init_db
-from typing import List, Dict
-import os
-import json
-from fastapi.responses import JSONResponse
+from app.utils.utils import process_test_infos
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -15,12 +12,10 @@ async def lifespan(app: FastAPI):
         print("데이터베이스 초기화 성공")
     except Exception as e:
         print(f"데이터베이스 초기화 실패: {str(e)}")
-    # UPLOAD_DIR 관련 코드를 제거했습니다.
     yield
 
 app = FastAPI(lifespan=lifespan)
 
-# CORS 설정
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -32,3 +27,9 @@ app.add_middleware(
 @app.get("/")
 async def root():
     return {"message": "AI Tutor Studio API"}
+
+@app.get("/test_infos")
+async def get_test_infos_route():
+    test_infos = await process_test_infos()
+    return test_infos
+

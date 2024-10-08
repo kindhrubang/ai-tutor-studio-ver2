@@ -28,25 +28,15 @@ async def init_db():
 async def get_collection(collection_name: str):
     return db[collection_name]
 
-async def get_dataSets():
-    collection = await get_collection("dataSets")
-    cursor = collection.find({})
-    datasets = await cursor.to_list(length=100)
-    return json.loads(json.dumps(datasets, cls=JSONEncoder))
+async def get_test_infos():
+    collection = await get_collection("test_info")
+    cursor = collection.find({}, {"_id": 0, "test_month": 1, "subject_name": 1})
+    test_infos = await cursor.to_list(length=None)
+    return json.loads(json.dumps(test_infos, cls=JSONEncoder))
 
-async def get_dataset(dataset_id: str):
-    collection = await get_collection("dataSets")
-    dataset = await collection.find_one({"_id": ObjectId(dataset_id)})
-    return json.loads(json.dumps(dataset, cls=JSONEncoder))
-
-async def save_dataset(dataset: dict):
-    dataset['created_at'] = datetime.utcnow()
-    collection = await get_collection("dataSets")
-    result = await collection.insert_one(dataset)
-    return str(result.inserted_id)
-
-async def update_dataset(dataset_id: str, dataset: dict):
-    collection = await get_collection("dataSets")
-    result = await collection.update_one({"_id": ObjectId(dataset_id)}, {"$set": dataset})
-    return result.modified_count > 0
+async def get_questions():
+    collection = await get_collection("questions")
+    cursor = collection.find({}, {"_id": 0, "test_month": 1, "subject_name": 1, "is_ready": 1})
+    questions = await cursor.to_list(length=None)
+    return json.loads(json.dumps(questions, cls=JSONEncoder))
 

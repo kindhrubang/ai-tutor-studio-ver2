@@ -84,3 +84,11 @@ python -m uvicorn main:app --reload
   - student_id
   - name
   - level
+
+models 테이블 데이터 형식 : llm_models
+  - test_month
+  - model_level
+  - fine_tuning_id
+  - status
+  - created_at
+

@@ -131,9 +131,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <List>
           {[
             { text: '홈', icon: <HomeIcon />, path: '/' },
-            { text: '데이터 추가', icon: <AddIcon />, path: '/data/add' },
-            { text: '데이터 검수', icon: <CheckIcon />, path: '/data/lists' },
-            { text: '모델 테스트', icon: <BugReportIcon />, path: '/model/test' },
+            { text: '모의고사 문제', icon: <AddIcon />, path: '/questions' },
+            { text: '모델 테스트', icon: <BugReportIcon />, path: '/tests' },
           ].map((item) => (
             <ListItem key={item.text} disablePadding>
               <ListItemButton component={Link} to={item.path}>
