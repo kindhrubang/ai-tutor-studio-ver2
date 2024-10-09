@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.db.database import init_db, get_questions_by_info, get_answers
-from app.utils.utils import process_test_infos
+from app.utils.utils import process_test_infos, save_or_update_answer, get_answer_status, get_specific_answer_from_db
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -39,3 +39,23 @@ async def get_questions(test_id: str, subject_id: str):
     base_answers = await get_answers(test_id, subject_id, "base_answer")
 
     return questions, base_answers
+
+@app.post("/questions/{test_id}/{subject_id}")
+async def create_question():
+
+    return {"message": "Question created successfully"}
+
+@app.post("/answer/{test_id}/{subject_id}")
+async def save_answer(test_id: str, subject_id: str, answer_data: dict):
+    result = await save_or_update_answer(test_id, subject_id, answer_data)
+    return result
+
+@app.get("/answer_status/{test_id}/{subject_id}")
+async def get_answers_status(test_id: str, subject_id: str):
+    status = await get_answer_status(test_id, subject_id)
+    return status
+
+@app.get("/answer/{test_id}/{subject_id}/{question_num}/{answer_type}")
+async def get_specific_answer(test_id: str, subject_id: str, question_num: str, answer_type: str):
+    answer = await get_specific_answer_from_db(test_id, subject_id, question_num, answer_type)
+    return {"answer": answer}

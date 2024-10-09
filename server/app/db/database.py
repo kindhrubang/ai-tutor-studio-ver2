@@ -42,7 +42,10 @@ async def get_questions():
 
 async def get_questions_by_info(testId: str, subjectId: str):
     collection = await get_collection("questions")
-    cursor = collection.find({"testId": int(testId), "subjectId": int(subjectId)})
+    cursor = collection.find(
+        {"testId": int(testId), "subjectId": int(subjectId)},
+        {"_id": 0, "testId": 1, "subjectId": 1, "question_number": 1, "question": 1, "content": 1, "choices": 1, "test_month": 1, "subject_name": 1}
+    )
     questions = await cursor.to_list(length=None)
     print(questions)
     return json.loads(json.dumps(questions, cls=JSONEncoder))
@@ -52,3 +55,37 @@ async def get_answers(testId: str, subjectId: str, collection_name: str):
     cursor = collection.find({"testId": int(testId), "subjectId": int(subjectId)})
     answers = await cursor.to_list(length=None)
     return json.loads(json.dumps(answers, cls=JSONEncoder))
+
+async def save_answer(test_id: str, subject_id: str, answer_data: dict, collection_name: str, update=False):
+    collection = await get_collection(collection_name)
+    
+    document = {
+        "test_month": answer_data['test_month'],
+        "subject_name": answer_data['subject_name'],
+        "question_num": answer_data['question_num'],
+        "answer": answer_data['answer'],
+        "testId": int(test_id),
+        "subjectId": int(subject_id)
+    }
+    
+    if update:
+        result = await collection.update_one(
+            {"testId": int(test_id), "subjectId": int(subject_id), "question_num": answer_data['question_num']},
+            {"$set": document}
+        )
+    else:
+        result = await collection.insert_one(document)
+    
+    return str(result.inserted_id) if not update else "Updated successfully"
+
+async def get_answer_collection(collection_name: str):
+    return await get_collection(collection_name)
+
+async def check_answer_exists(test_id: str, subject_id: str, question_num: str, collection_name: str):
+    collection = await get_collection(collection_name)
+    existing_answer = await collection.find_one({
+        "testId": int(test_id),
+        "subjectId": int(subject_id),
+        "question_num": question_num
+    })
+    return existing_answer is not None
