@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { getTestInfos } from '../services/api';
 
 interface TestInfo {
+  testId: string;
+  subjectId: string;
   test_month: string;
   subject_name: string;
   is_ready: boolean;
@@ -54,7 +56,7 @@ const Questions: React.FC = () => {
               <TableCell>
                 <Button
                   variant="contained"
-                  onClick={() => navigate(`/question/${testInfo.test_month}`)}
+                  onClick={() => navigate(`/questions/${testInfo.testId}/${testInfo.subjectId}`)}
                 >
                   수정
                 </Button>

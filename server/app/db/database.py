@@ -30,13 +30,25 @@ async def get_collection(collection_name: str):
 
 async def get_test_infos():
     collection = await get_collection("test_info")
-    cursor = collection.find({}, {"_id": 0, "test_month": 1, "subject_name": 1})
+    cursor = collection.find({}, {"_id": 0, "testId": 1, "subjectId": 1, "test_month": 1, "subject_name": 1})
     test_infos = await cursor.to_list(length=None)
     return json.loads(json.dumps(test_infos, cls=JSONEncoder))
 
 async def get_questions():
     collection = await get_collection("questions")
-    cursor = collection.find({}, {"_id": 0, "test_month": 1, "subject_name": 1, "is_ready": 1})
+    cursor = collection.find({}, {"_id": 0, "testId": 1, "subjectId": 1, "test_month": 1, "subject_name": 1, "is_ready": 1})
     questions = await cursor.to_list(length=None)
     return json.loads(json.dumps(questions, cls=JSONEncoder))
 
+async def get_questions_by_info(testId: str, subjectId: str):
+    collection = await get_collection("questions")
+    cursor = collection.find({"testId": int(testId), "subjectId": int(subjectId)})
+    questions = await cursor.to_list(length=None)
+    print(questions)
+    return json.loads(json.dumps(questions, cls=JSONEncoder))
+
+async def get_answers(testId: str, subjectId: str, collection_name: str):
+    collection = await get_collection(collection_name)
+    cursor = collection.find({"testId": int(testId), "subjectId": int(subjectId)})
+    answers = await cursor.to_list(length=None)
+    return json.loads(json.dumps(answers, cls=JSONEncoder))

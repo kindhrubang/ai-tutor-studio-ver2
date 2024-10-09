@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.core.config import settings
-from app.db.database import init_db
+from app.db.database import init_db, get_questions_by_info, get_answers
 from app.utils.utils import process_test_infos
 
 @asynccontextmanager
@@ -33,3 +33,9 @@ async def get_test_infos_route():
     test_infos = await process_test_infos()
     return test_infos
 
+@app.get("/questions/{test_id}/{subject_id}")
+async def get_questions(test_id: str, subject_id: str):
+    questions = await get_questions_by_info(test_id, subject_id)
+    base_answers = await get_answers(test_id, subject_id, "base_answer")
+
+    return questions, base_answers
