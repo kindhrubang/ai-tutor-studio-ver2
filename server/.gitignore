@@ -26,3 +26,6 @@ Thumbs.db
 # Build outputs
 /build
 /dist
+
+# test files
+test.ipynb

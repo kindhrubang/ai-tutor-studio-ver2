@@ -1,5 +1,9 @@
 # ai-tutor-studio-ver2
 
+## 시스템 환경변수 설정
+
+LLM_API_KEY : OPENAI API KEY
+
 ## client 실행 명령어
 
 node.js 설치
