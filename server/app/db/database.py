@@ -30,13 +30,13 @@ async def get_collection(collection_name: str):
 
 async def get_test_infos():
     collection = await get_collection("test_info")
-    cursor = collection.find({}, {"_id": 0, "testId": 1, "subjectId": 1, "test_month": 1, "subject_name": 1})
+    cursor = collection.find({}, {"_id": 0, "testId": 1, "subjectId": 1, "test_month": 1, "subject_name": 1, "is_ready": 1})
     test_infos = await cursor.to_list(length=None)
     return json.loads(json.dumps(test_infos, cls=JSONEncoder))
 
 async def get_questions():
     collection = await get_collection("questions")
-    cursor = collection.find({}, {"_id": 0, "testId": 1, "subjectId": 1, "test_month": 1, "subject_name": 1, "is_ready": 1})
+    cursor = collection.find({}, {"_id": 0, "testId": 1, "subjectId": 1, "test_month": 1, "subject_name": 1})
     questions = await cursor.to_list(length=None)
     return json.loads(json.dumps(questions, cls=JSONEncoder))
 
@@ -89,3 +89,10 @@ async def check_answer_exists(test_id: str, subject_id: str, question_num: str, 
         "question_num": question_num
     })
     return existing_answer is not None
+
+async def update_test_info_ready_status(test_id: str, subject_id: str, is_ready: bool):
+    collection = await get_collection("test_info")
+    await collection.update_one(
+        {"testId": int(test_id), "subjectId": int(subject_id)},
+        {"$set": {"is_ready": is_ready}}
+    )
