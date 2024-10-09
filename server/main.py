@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.db.database import init_db, get_questions_by_info, get_answers
 from app.utils.utils import process_test_infos, save_or_update_answer, get_answer_status, get_specific_answer_from_db
-
+from app.services.llm_service import create_finetuning_model
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
@@ -59,3 +59,9 @@ async def get_answers_status(test_id: str, subject_id: str):
 async def get_specific_answer(test_id: str, subject_id: str, question_num: str, answer_type: str):
     answer = await get_specific_answer_from_db(test_id, subject_id, question_num, answer_type)
     return {"answer": answer}
+
+@app.post("/finetuning/{test_id}/{subject_id}")
+async def create_finetuning_model(testId: str, subjectId: str):
+    result = await create_finetuning_model(testId, subjectId)
+    return result
+

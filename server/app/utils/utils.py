@@ -1,5 +1,5 @@
 from app.core.config import settings
-from app.db.database import get_test_infos, get_questions, save_answer, get_answer_collection, check_answer_exists, update_test_info_ready_status
+from app.db.database import get_test_infos, get_answers, save_answer, get_answer_collection, check_answer_exists, update_test_info_ready_status, get_questions_by_info
 import json
 
 async def process_test_infos():
@@ -63,3 +63,39 @@ async def get_specific_answer_from_db(test_id: str, subject_id: str, question_nu
         "question_num": question_num
     })
     return answer['answer'] if answer else ''
+
+async def create_base_data(question):
+    return {
+        "test_month": question["test_month"],
+        "subject_name": question["subject_name"],
+        "question_num": str(question["question_number"]),
+        "question": question["question"],
+        "content": question["content"],
+        "choices": question["choices"]
+    }
+
+async def get_answer_for_question(answers, question_num):
+    return next((a for a in answers if a["question_num"] == question_num), None)
+
+async def create_finetuning_data(questions, answers):
+    data = []
+    for question in questions:
+        base_data = await create_base_data(question)
+        answer = await get_answer_for_question(answers, str(question["question_number"]))
+        base_data["answer"] = answer["answer"] if answer else ""
+        data.append(json.dumps(base_data, ensure_ascii=False))
+    return "\n".join(data)
+
+async def create_finetuning_training_data(test_id: str, subject_id: str):
+    questions = await get_questions_by_info(test_id, subject_id)
+    base_answers = await get_answers(test_id, subject_id, "base_answer")
+    low_answers = await get_answers(test_id, subject_id, "low_answer")
+    medium_answers = await get_answers(test_id, subject_id, "medium_answer")
+    high_answers = await get_answers(test_id, subject_id, "high_answer")
+
+    base_jsonl = await create_finetuning_data(questions, base_answers)
+    low_jsonl = await create_finetuning_data(questions, low_answers)
+    medium_jsonl = await create_finetuning_data(questions, medium_answers)
+    high_jsonl = await create_finetuning_data(questions, high_answers)
+
+    return base_jsonl, low_jsonl, medium_jsonl, high_jsonl

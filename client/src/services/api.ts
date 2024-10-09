@@ -57,3 +57,13 @@ export const getSpecificAnswer = async (testId: string, subjectId: string, quest
     return '';
   }
 };
+
+export const createFinetuningModel = async (testId: string, subjectId: string) => {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/finetuning/${testId}/${subjectId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Finetuning 모델 생성 중 오류 발생:', error);
+    throw error;
+  }
+};
