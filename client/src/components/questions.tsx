@@ -32,7 +32,6 @@ const Questions: React.FC = () => {
             <TableCell>과목</TableCell>
             <TableCell>데이터 상태</TableCell>
             <TableCell>풀이</TableCell>
-            <TableCell>모델</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -59,15 +58,6 @@ const Questions: React.FC = () => {
                   onClick={() => navigate(`/questions/${testInfo.testId}/${testInfo.subjectId}`)}
                 >
                   수정
-                </Button>
-              </TableCell>
-              <TableCell>
-                <Button
-                  variant="contained"
-                  disabled={!testInfo.is_ready}
-                  onClick={() => {/* 모델 생성 로직 */}}
-                >
-                  생성
                 </Button>
               </TableCell>
             </TableRow>

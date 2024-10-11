@@ -129,18 +129,30 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         </DrawerHeader>
         <Divider />
         <List>
-          {[
-            { text: '홈', icon: <HomeIcon />, path: '/' },
-            { text: '모의고사 문제', icon: <AddIcon />, path: '/questions' },
-            { text: '모델 테스트', icon: <BugReportIcon />, path: '/tests' },
-          ].map((item) => (
-            <ListItem key={item.text} disablePadding>
-              <ListItemButton component={Link} to={item.path}>
-                <ListItemIcon>{item.icon}</ListItemIcon>
-                <ListItemText primary={item.text} />
-              </ListItemButton>
-            </ListItem>
-          ))}
+          <ListItem disablePadding>
+            <ListItemButton component={Link} to="/">
+              <ListItemIcon><HomeIcon /></ListItemIcon>
+              <ListItemText primary="홈" />
+            </ListItemButton>
+          </ListItem>
+        </List>
+        <Divider />
+        <List>
+          <ListItem disablePadding>
+            <ListItemButton component={Link} to="/questions">
+              <ListItemIcon><AddIcon /></ListItemIcon>
+              <ListItemText primary="모의고사 문제" />
+            </ListItemButton>
+          </ListItem>
+        </List>
+        <Divider />
+        <List>
+          <ListItem disablePadding>
+            <ListItemButton component={Link} to="/tests">
+              <ListItemIcon><ModelTrainingIcon /></ListItemIcon>
+              <ListItemText primary="어드민" />
+            </ListItemButton>
+          </ListItem>
         </List>
       </Drawer>
       <Main open={open}>
