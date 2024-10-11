@@ -13,7 +13,7 @@ const QuestionPage: React.FC = () => {
   return (
     <Container maxWidth="lg">
       <Typography variant="h4" gutterBottom>
-        문제 상세
+        모의고사 문제
       </Typography>
       <Question testId={testId} subjectId={subjectId} />
     </Container>

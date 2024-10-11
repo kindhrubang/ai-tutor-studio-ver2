@@ -1,21 +1,130 @@
 from app.core.config import settings
-import openai
-import json
+from openai import OpenAI
 from app.utils.utils import create_finetuning_training_data
+import asyncio
+import tempfile
+import os
+import json
+from app.db.database import save_llm_model, update_llm_model_status
 
-async def create_finetuning_model(testId: str, subjectId: str):
-    openai.api_key = settings.OPENAI_API_KEY
+async def create_finetuning_model(test_id: str, subject_id: str, level: str):
+    if not settings.OPENAI_API_KEY:
+        raise ValueError("OpenAI API 키가 설정되지 않았습니다.")
+    
+    client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
-    # 트레이닝 데이터 생성
-    base_jsonl, low_jsonl, medium_jsonl, high_jsonl = await create_finetuning_training_data(testId, subjectId)
+    # 선택한 레벨의 트레이닝 데이터만 생성
+    training_data = await create_finetuning_training_data(test_id, subject_id, level)
 
-    # 여기에 OpenAI API를 사용하여 파인튜닝 모델을 생성하는 코드를 추가할 수 있습니다.
-    results = {}
-    for answer_type, data in zip(["base", "low", "medium", "high"], [base_jsonl, low_jsonl, medium_jsonl, high_jsonl]):
-        # OpenAI API를 사용하여 파인튜닝 작업 시작
-        # 이 부분은 OpenAI의 최신 API에 맞게 구현해야 합니다.
-        # 예: results[answer_type] = openai.FineTune.create(training_data=data, model="davinci")
-        pass
+    try:
+        # 트레이닝 데이터 로깅
+        print(f"Training data for {test_id}-{subject_id}-{level}:")
+        print(training_data[:1000])  # 처음 1000자만 출력
+        
+        # 임시 파일 생성
+        with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.jsonl', encoding='utf-8') as temp_file:
+            for line in training_data.split('\n'):
+                temp_file.write(line + '\n')
+            temp_file_path = temp_file.name
+        
+        print(f"Temporary file created at: {temp_file_path}")
+        
+        # 파일 내용 확인
+        with open(temp_file_path, 'r', encoding='utf-8') as file:
+            print("File contents:")
+            print(file.read()[:1000])  # 처음 1000자만 출력
+        
+        # 파일 업로드
+        with open(temp_file_path, 'rb') as file:
+            file_response = client.files.create(
+                file=file,
+                purpose='fine-tune'
+            )
+        
+        # 임시 파일 삭제
+        os.unlink(temp_file_path)
+        
+        # 파인튜닝 작업 생성
+        fine_tune_response = client.fine_tuning.jobs.create(
+            training_file=file_response.id,
+            model="gpt-4o-mini-2024-07-18",
+            suffix=f"{test_id}_{subject_id}_{level}"
+        )
+        
+        # 결과 저장
+        result = {
+            "status": fine_tune_response.status,
+            "fine_tuned_model": fine_tune_response.fine_tuned_model,
+            "job_id": fine_tune_response.id
+        }
 
-    return results
+        # 데이터베이스에 저장
+        await save_llm_model(
+            test_id,
+            subject_id,
+            level,
+            fine_tune_response.status,
+            fine_tune_response.fine_tuned_model,
+            fine_tune_response.id
+        )
+
+        # 상태 업데이트를 즉시 시작
+        asyncio.create_task(update_model_status_periodically(fine_tune_response.id))
+
+        return result
+
+    except Exception as e:
+        print(f"Error creating finetuning model: {str(e)}")
+        print(f"Training data sample: {training_data[:500]}")  # 트레이닝 데이터 샘플 출력
+        # 에러 발생 시 데이터베이스에 실패 상태 저장
+        await save_llm_model(
+            test_id,
+            subject_id,
+            level,
+            "failed",
+            None,
+            None
+        )
+        return {"error": str(e)}
+
+async def update_model_status_periodically(job_id: str):
+    while True:
+        try:
+            status = await get_finetuning_status(job_id)
+            if status['status'] in ['succeeded', 'failed', 'cancelled']:
+                break
+            await asyncio.sleep(30)  # 1분마다 상태 확인
+        except Exception as e:
+            print(f"Error updating model status: {str(e)}")
+            break
+
+async def get_finetuning_status(job_id: str):
+    if not settings.OPENAI_API_KEY:
+        raise ValueError("OpenAI API 키가 설정되지 않았습니다.")
+    
+    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+    try:
+        job = client.fine_tuning.jobs.retrieve(job_id)
+        status = job.status
+        if status == "validating_files":
+            status = "validating_files"
+        elif status == "queued":
+            status = "pending"
+        elif status in ["running", "succeeded", "failed", "cancelled"]:
+            status = status
+        else:
+            status = "unknown"
+
+        result = {
+            "status": status,
+            "fine_tuned_model": job.fine_tuned_model,
+            "job_id": job.id
+        }
+        # 데이터베이스 업데이트
+        await update_llm_model_status(job_id, status, job.fine_tuned_model)
+        return result
+    except Exception as e:
+        print(f"Error getting finetuning status: {str(e)}")
+        return {"error": str(e)}
 

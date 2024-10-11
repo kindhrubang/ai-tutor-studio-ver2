@@ -96,3 +96,61 @@ async def update_test_info_ready_status(test_id: str, subject_id: str, is_ready:
         {"testId": int(test_id), "subjectId": int(subject_id)},
         {"$set": {"is_ready": is_ready}}
     )
+
+async def db_get_datalists():
+    test_info_collection = await get_collection("test_info")
+    llm_models_collection = await get_collection("llm_models")
+    
+    cursor = test_info_collection.find({}, {"_id": 0, "testId": 1, "subjectId": 1, "test_month": 1, "subject_name": 1, "is_ready": 1})
+    test_infos = await cursor.to_list(length=None)
+    
+    result = []
+    for test_info in test_infos:
+        test_info['levels'] = {}
+        for level in ['base', 'low', 'medium', 'high']:  # 'med'를 'medium'으로 변경
+            model = await llm_models_collection.find_one(
+                {"testId": test_info['testId'], "subjectId": test_info['subjectId'], "level": level},
+                {"_id": 0, "fine_tuned_model": 1, "status": 1, "job_id": 1}
+            )
+            if model:
+                test_info['levels'][level] = {
+                    "fine_tuned_model": model['fine_tuned_model'],
+                    "status": model['status'],
+                    "job_id": model['job_id']
+                }
+            else:
+                test_info['levels'][level] = None
+        result.append(test_info)
+    
+    return json.loads(json.dumps(result, cls=JSONEncoder))
+
+# 기존 코드에 다음 함수를 추가합니다.
+
+async def save_llm_model(test_id: str, subject_id: str, level: str, status: str, fine_tuned_model: str, job_id: str):
+    collection = await get_collection("llm_models")
+    document = {
+        "testId": int(test_id),
+        "subjectId": int(subject_id),
+        "level": level,
+        "status": status,
+        "fine_tuned_model": fine_tuned_model,
+        "job_id": job_id
+    }
+    await collection.update_one(
+        {"testId": int(test_id), "subjectId": int(subject_id), "level": level},
+        {"$set": document},
+        upsert=True
+    )
+
+async def update_llm_model_status(job_id: str, status: str, fine_tuned_model: str = None):
+    collection = await get_collection("llm_models")
+    update_data = {"status": status}
+    if fine_tuned_model:
+        update_data["fine_tuned_model"] = fine_tuned_model
+    await collection.update_one(
+        {"job_id": job_id},
+        {"$set": update_data}
+    )
+
+
+

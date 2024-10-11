@@ -1,25 +1,184 @@
-import React, { useEffect, useState } from 'react';
-import { TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Paper } from '@mui/material';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Paper, Typography, Button, CircularProgress } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { getTestInfos } from '../services/api';
+import { getDatalists, createFinetuningModel, getFinetuningStatus } from '../services/api';
+
+interface ModelInfo {
+  fine_tuned_model: string | null;
+  status: 'idle' | 'creating' | 'pending' | 'running' | 'succeeded' | 'failed' | 'validating_files';
+  job_id: string | null;
+}
 
 interface TestsInfo {
-  id: number;
-  test_name: string;
-  test_description: string;
+  testId: string;
+  subjectId: string;
+  test_month: string;
+  subject_name: string;
+  is_ready: boolean;
+  levels: {
+    base: ModelInfo | null;
+    low: ModelInfo | null;
+    medium: ModelInfo | null;  // 'med'를 'medium'으로 변경
+    high: ModelInfo | null;
+  };
+}
+
+interface ModelStatus {
+  [key: string]: {
+    status: 'idle' | 'creating' | 'pending' | 'running' | 'succeeded' | 'failed' | 'validating_files';
+    progress?: number;
+  };
 }
 
 const Tests: React.FC = () => {
   const [testsInfo, setTestsInfo] = useState<TestsInfo[]>([]);
+  const [modelStatus, setModelStatus] = useState<ModelStatus>({});
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const activeJobsRef = useRef<Set<string>>(new Set());
+
+  const fetchTestsInfo = useCallback(async () => {
+    try {
+      const data: TestsInfo[] = await getDatalists();
+      setTestsInfo(data);
+      initializeModelStatus(data);
+      
+      // 진행 중인 모델에 대해 상태 확인 시작
+      data.forEach((testInfo: TestsInfo) => {
+        Object.entries(testInfo.levels).forEach(([level, modelInfo]) => {
+          if (modelInfo && modelInfo.job_id && (modelInfo.status === 'running' || modelInfo.status === 'pending' || modelInfo.status === 'validating_files')) {
+            activeJobsRef.current.add(modelInfo.job_id);
+            checkModelStatus(modelInfo.job_id, testInfo.testId, testInfo.subjectId, level);
+          }
+        });
+      });
+    } catch (err) {
+      console.error('Error fetching tests info:', err);
+      setError('데이터를 불러오는 중 오류가 발생했습니다.');
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchTestsInfo = async () => {
-      const data = await getTestInfos();
-      setTestsInfo(data);
-    };
     fetchTestsInfo();
-  }, []);
+  }, [fetchTestsInfo]);
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      if (activeJobsRef.current.size > 0) {
+        fetchTestsInfo();
+      }
+    }, 30000);
+    return () => clearInterval(intervalId);
+  }, [fetchTestsInfo]);
+
+  const initializeModelStatus = (data: TestsInfo[]) => {
+    const initialStatus: ModelStatus = {};
+    data.forEach(testInfo => {
+      Object.entries(testInfo.levels).forEach(([level, modelInfo]) => {
+        const key = `${testInfo.testId}-${testInfo.subjectId}-${level}`;
+        if (modelInfo) {
+          initialStatus[key] = { 
+            status: modelInfo.status,
+            progress: modelInfo.status === 'succeeded' ? 100 : (modelInfo.status === 'running' ? 50 : 0)
+          };
+        } else {
+          initialStatus[key] = { status: 'idle', progress: 0 };
+        }
+      });
+    });
+    setModelStatus(initialStatus);
+  };
+
+  const handleCreateModel = async (testId: string, subjectId: string, level: string) => {
+    const statusKey = `${testId}-${subjectId}-${level}`;
+    try {
+      setModelStatus(prev => ({
+        ...prev,
+        [statusKey]: { status: 'creating', progress: 0 }
+      }));
+      const result = await createFinetuningModel(testId, subjectId, level);
+      if (result.error) {
+        throw new Error(result.error);
+      }
+      setModelStatus(prev => ({
+        ...prev,
+        [statusKey]: { status: 'pending', progress: 0 }
+      }));
+      activeJobsRef.current.add(result.job_id);
+      await checkModelStatus(result.job_id, testId, subjectId, level);
+    } catch (err) {
+      console.error('Error creating finetuning model:', err);
+      setError(`파인튜닝 모델 생성 중 오류가 발생했습니다: ${(err as Error).message}`);
+      setModelStatus(prev => ({
+        ...prev,
+        [statusKey]: { status: 'failed', progress: 0 }
+      }));
+    }
+  };
+
+  const checkModelStatus = useCallback(async (jobId: string | null, testId: string, subjectId: string, level: string) => {
+    if (!jobId) {
+      console.error('Job ID is null or undefined');
+      return;
+    }
+
+    const statusKey = `${testId}-${subjectId}-${level}`;
+    try {
+      const status = await getFinetuningStatus(jobId);
+      if (status.error) {
+        throw new Error(status.error);
+      }
+      setModelStatus(prev => ({
+        ...prev,
+        [statusKey]: { 
+          status: status.status as ModelStatus[string]['status'],
+          progress: status.status === 'succeeded' ? 100 : (status.status === 'running' ? 50 : 0)
+        }
+      }));
+      if (status.status !== 'succeeded' && status.status !== 'failed' && status.status !== 'cancelled') {
+        setTimeout(() => checkModelStatus(jobId, testId, subjectId, level), 10000);
+      } else {
+        activeJobsRef.current.delete(jobId);
+        await fetchTestsInfo();
+      }
+    } catch (err) {
+      console.error('Error checking model status:', err);
+      setModelStatus(prev => ({
+        ...prev,
+        [statusKey]: { status: 'failed', progress: 0 }
+      }));
+      activeJobsRef.current.delete(jobId);
+    }
+  }, [fetchTestsInfo]);
+
+  const renderStatus = (status: ModelStatus[string]) => {
+    switch (status.status) {
+      case 'idle':
+        return '-';
+      case 'creating':
+        return '생성 중...';
+      case 'pending':
+        return '대기 중...';
+      case 'running':
+        return (
+          <div>
+            진행 중 <CircularProgress size={20} />
+          </div>
+        );
+      case 'succeeded':
+        return '완료';
+      case 'failed':
+        return '실패';
+      case 'validating_files':
+        return '파일 검증 중...';
+      default:
+        return '-';
+    }
+  };
+
+  if (error) {
+    return <Typography color="error">{error}</Typography>;
+  }
 
   return (
     <TableContainer component={Paper}>
@@ -29,17 +188,40 @@ const Tests: React.FC = () => {
             <TableCell>모의고사</TableCell>
             <TableCell>과목</TableCell>
             <TableCell>데이터 상태</TableCell>
-            <TableCell>풀이</TableCell>
+            <TableCell>풀이 레벨</TableCell>
             <TableCell>모델</TableCell>
+            <TableCell>액션</TableCell>
+            <TableCell>진행 상태</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
-          {testsInfo.map((testInfo, index) => (
-            <TableRow key={index}>
-              <TableCell>{testInfo.test_name}</TableCell>
-              <TableCell>{testInfo.test_description}</TableCell>
-            </TableRow>
-          ))}
+          {testsInfo.flatMap((testInfo, index) => 
+            Object.entries(testInfo.levels).map(([level, model]) => {
+              const statusKey = `${testInfo.testId}-${testInfo.subjectId}-${level}`;
+              const status = modelStatus[statusKey] || { status: 'idle' };
+              const isModelComplete = status.status === 'succeeded' || status.status === 'failed';
+              const buttonText = model ? '모델 업데이트' : '모델 생성';
+              return (
+                <TableRow key={`${index}-${level}`}>
+                  <TableCell>{testInfo.test_month}</TableCell>
+                  <TableCell>{testInfo.subject_name}</TableCell>
+                  <TableCell>{testInfo.is_ready ? '완료' : '미완료'}</TableCell>
+                  <TableCell>{level.toUpperCase()}</TableCell>
+                  <TableCell>{model ? '있음' : '없음'}</TableCell>
+                  <TableCell>
+                    <Button
+                      variant="contained"
+                      disabled={!testInfo.is_ready || (!isModelComplete && status.status !== 'idle')}
+                      onClick={() => handleCreateModel(testInfo.testId, testInfo.subjectId, level)}
+                    >
+                      {buttonText}
+                    </Button>
+                  </TableCell>
+                  <TableCell>{renderStatus(status)}</TableCell>
+                </TableRow>
+              );
+            })
+          )}
         </TableBody>
       </Table>
     </TableContainer>
@@ -47,5 +229,3 @@ const Tests: React.FC = () => {
 };
 
 export default Tests;
-
-

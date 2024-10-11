@@ -2,9 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.core.config import settings
-from app.db.database import init_db, get_questions_by_info, get_answers
+from app.db.database import init_db, get_questions_by_info, get_answers, db_get_datalists
 from app.utils.utils import process_test_infos, save_or_update_answer, get_answer_status, get_specific_answer_from_db
-from app.services.llm_service import create_finetuning_model
+from app.services.llm_service import create_finetuning_model, get_finetuning_status
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
@@ -60,8 +61,18 @@ async def get_specific_answer(test_id: str, subject_id: str, question_num: str, 
     answer = await get_specific_answer_from_db(test_id, subject_id, question_num, answer_type)
     return {"answer": answer}
 
-@app.post("/finetuning/{test_id}/{subject_id}")
-async def create_finetuning_model(testId: str, subjectId: str):
-    result = await create_finetuning_model(testId, subjectId)
+@app.get("/finetuning/datalists")
+async def get_datalists():
+    datalists = await db_get_datalists()
+    return datalists
+
+@app.post("/finetuning/{test_id}/{subject_id}/{level}")
+async def create_finetuning_model_route(test_id: str, subject_id: str, level: str):
+    result = await create_finetuning_model(test_id, subject_id, level)
+    return result
+
+@app.get("/finetuning_status/{job_id}")
+async def get_finetuning_status_route(job_id: str):
+    result = await get_finetuning_status(job_id)
     return result
 

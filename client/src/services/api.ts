@@ -58,12 +58,32 @@ export const getSpecificAnswer = async (testId: string, subjectId: string, quest
   }
 };
 
-export const createFinetuningModel = async (testId: string, subjectId: string) => {
+export const createFinetuningModel = async (testId: string, subjectId: string, level: string) => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/finetuning/${testId}/${subjectId}`);
+    const response = await axios.post(`${API_BASE_URL}/finetuning/${testId}/${subjectId}/${level}`);
     return response.data;
   } catch (error) {
     console.error('Finetuning 모델 생성 중 오류 발생:', error);
     throw error;
   }
 };
+
+export const getDatalists = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/finetuning/datalists`);
+    return response.data;
+  } catch (error) {
+    console.error('Finetuning 데이터셋 가져오기 중 오류 발생:', error);
+    throw error;
+  }
+};
+
+export const getFinetuningStatus = async (jobId: string) => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/finetuning_status/${jobId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Finetuning 상태 확인 중 오류 발생:', error);
+    throw error;
+  }
+}

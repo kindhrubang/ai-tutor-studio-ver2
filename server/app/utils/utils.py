@@ -86,16 +86,27 @@ async def create_finetuning_data(questions, answers):
         data.append(json.dumps(base_data, ensure_ascii=False))
     return "\n".join(data)
 
-async def create_finetuning_training_data(test_id: str, subject_id: str):
+async def create_finetuning_training_data(test_id: str, subject_id: str, level: str):
     questions = await get_questions_by_info(test_id, subject_id)
-    base_answers = await get_answers(test_id, subject_id, "base_answer")
-    low_answers = await get_answers(test_id, subject_id, "low_answer")
-    medium_answers = await get_answers(test_id, subject_id, "medium_answer")
-    high_answers = await get_answers(test_id, subject_id, "high_answer")
+    
+    # 'med'를 'medium'으로 변경
+    collection_name = f"{level}_answer"
+    answers = await get_answers(test_id, subject_id, collection_name)
 
-    base_jsonl = await create_finetuning_data(questions, base_answers)
-    low_jsonl = await create_finetuning_data(questions, low_answers)
-    medium_jsonl = await create_finetuning_data(questions, medium_answers)
-    high_jsonl = await create_finetuning_data(questions, high_answers)
-
-    return base_jsonl, low_jsonl, medium_jsonl, high_jsonl
+    jsonl_data = []
+    for question in questions:
+        answer = next((a for a in answers if a["question_num"] == str(question["question_number"])), None)
+        if answer and answer["answer"].strip():
+            data = {
+                "messages": [
+                    {"role": "system", "content": "당신은 영어 문제에 대한 해설을 제공하는 AI 튜터입니다."},
+                    {"role": "user", "content": f"문제: {question['question']}\n내용: {question['content']}\n선택지: {json.dumps(question['choices'], ensure_ascii=False)}"},
+                    {"role": "assistant", "content": f"해설: {answer['answer']}"}
+                ]
+            }
+            jsonl_data.append(json.dumps(data, ensure_ascii=False))
+    
+    result = "\n".join(jsonl_data)
+    print("Sample of generated JSONL data:")
+    print(result[:1000])  # 처음 1000자만 출력
+    return result
