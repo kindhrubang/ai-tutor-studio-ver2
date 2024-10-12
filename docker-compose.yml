@@ -7,8 +7,6 @@ services:
       - "3000:3000"
     depends_on:
       - server
-    environment:
-      - REACT_APP_API_URL=http://server:8000
 
   server:
     build:
@@ -16,17 +14,5 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
-    depends_on:
-      - mongodb
-    environment:
-      - MONGODB_URI=mongodb://mongodb:27017/ai_tutor_studio
 
-  mongodb:
-    image: mongo:latest
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
 
-volumes:
-  mongodb_data:
