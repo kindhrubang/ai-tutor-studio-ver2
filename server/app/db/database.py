@@ -3,6 +3,9 @@ from app.core.config import settings
 from datetime import datetime
 from bson import ObjectId
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 class JSONEncoder(json.JSONEncoder):
     def default(self, o):
@@ -12,21 +15,27 @@ class JSONEncoder(json.JSONEncoder):
             return o.isoformat()
         return json.JSONEncoder.default(self, o)
 
-client = AsyncIOMotorClient(settings.DATABASE_URL)
-db = client[settings.MONGODB_DB_NAME]
+client = AsyncIOMotorClient(settings.MONGODB_URL)
+database = client[settings.MONGODB_DB_NAME]
 
 async def init_db():
     try:
         await client.admin.command('ping')
-        print("데이터베이스에 성공적으로 연결되었습니다.")
-        print(f"연결된 데이터베이스: {settings.MONGODB_DB_NAME}")
+        logger.info("데이터베이스에 성공적으로 연결되었습니다.")
+        logger.info(f"연결된 데이터베이스: {settings.MONGODB_DB_NAME}")
+        logger.info(f"연결 URL: {settings.MONGODB_URL}")
     except Exception as e:
-        print(f"데이터베이스 연결 실패: {str(e)}")
-        print(f"시도한 연결 URL: {settings.DATABASE_URL}")
+        logger.error(f"데이터베이스 연결 실패: {str(e)}")
+        logger.error(f"시도한 연결 URL: {settings.MONGODB_URL}")
         raise
 
+# 데이터베이스 연결 종료 함수
+async def close_mongo_connection():
+    client.close()
+    print("MongoDB 연결이 종료되었습니다.")
+
 async def get_collection(collection_name: str):
-    return db[collection_name]
+    return database[collection_name]
 
 async def get_test_infos():
     collection = await get_collection("test_info")

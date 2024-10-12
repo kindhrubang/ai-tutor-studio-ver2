@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = '/api';  // '/api'로 변경
 
 export const getTestInfos = async () => {
   try {

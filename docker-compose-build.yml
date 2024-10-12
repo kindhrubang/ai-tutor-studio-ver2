@@ -1,8 +1,6 @@
 services:
   client:
-    build:
-      context: ./client
-      dockerfile: Dockerfile
+    image: rodneykim/team2_client
     ports:
       - "80:80"
     depends_on:
@@ -11,9 +9,7 @@ services:
       - app-network
 
   server:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
+    image: rodneykim/team2_server
     ports:
       - "8000:8000"
     environment:
