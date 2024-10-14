@@ -189,9 +189,9 @@ const Tests: React.FC = () => {
             <TableCell>과목</TableCell>
             <TableCell>데이터 상태</TableCell>
             <TableCell>풀이 레벨</TableCell>
-            <TableCell>모델</TableCell>
             <TableCell>액션</TableCell>
             <TableCell>진행 상태</TableCell>
+            <TableCell>테스트</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -207,7 +207,6 @@ const Tests: React.FC = () => {
                   <TableCell>{testInfo.subject_name}</TableCell>
                   <TableCell>{testInfo.is_ready ? '완료' : '미완료'}</TableCell>
                   <TableCell>{level.toUpperCase()}</TableCell>
-                  <TableCell>{model ? '있음' : '없음'}</TableCell>
                   <TableCell>
                     <Button
                       variant="contained"
@@ -218,6 +217,15 @@ const Tests: React.FC = () => {
                     </Button>
                   </TableCell>
                   <TableCell>{renderStatus(status)}</TableCell>
+                  <TableCell>
+                    <Button
+                      variant="contained"
+                      disabled={!isModelComplete}
+                      onClick={() => navigate(`/tests/${model?.fine_tuned_model}`)}
+                    >
+                      테스트
+                    </Button>
+                  </TableCell>
                 </TableRow>
               );
             })

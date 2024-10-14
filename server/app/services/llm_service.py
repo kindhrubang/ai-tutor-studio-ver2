@@ -128,3 +128,21 @@ async def get_finetuning_status(job_id: str):
         print(f"Error getting finetuning status: {str(e)}")
         return {"error": str(e)}
 
+async def test_finetuning_model(model_id: str):
+    if not settings.OPENAI_API_KEY:
+        raise ValueError("OpenAI API 키가 설정되지 않았습니다.")
+    
+    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+    try:
+        response = client.chat.completions.create(
+            model=model_id,
+            messages=[
+                {"role": "system", "content": "당신은 영어 문제에 풀이를 제공하는 AI 에이전트입니다."},
+                {"role": "user", "content": "첫번째 문제와 풀이를 보여주세요."}
+            ]
+        )
+        return response
+    except Exception as e:
+        print(f"Error testing finetuning model: {str(e)}")
+        return {"error": str(e)}

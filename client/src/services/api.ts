@@ -87,3 +87,13 @@ export const getFinetuningStatus = async (jobId: string) => {
     throw error;
   }
 }
+
+export const testFinetuningModel = async (modelId: string) => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/finetuning/test/${modelId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Finetuning 모델 테스트 중 오류 발생:', error);
+    throw error;
+  }
+}
