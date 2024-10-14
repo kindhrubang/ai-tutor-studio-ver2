@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, Button, Card, CardContent, TextField, Grid } from '@mui/material';
-import { getQuestions, saveAnswer, getAnswerStatus, getSpecificAnswer } from '../services/api';
+import { getQuestions, saveAnswer, getAnswerStatus, getSpecificAnswer, convertSpeechToText } from '../services/api';
+import VoiceRecorder from './VoiceRecorder';
 
 interface QuestionData {
   question_number: number;
@@ -110,6 +111,16 @@ const Question: React.FC<QuestionProps> = ({ testId, subjectId }) => {
     }));
   };
 
+  const handleVoiceRecordingComplete = async (answerType: 'low' | 'medium' | 'high', audioBlob: Blob) => {
+    try {
+      const text = await convertSpeechToText(audioBlob);
+      handleAnswerChange(answerType, text);
+    } catch (error) {
+      console.error('음성을 텍스트로 변환하는 중 오류 발생:', error);
+      alert('음성을 텍스트로 변환하는데 실패했습니다.');
+    }
+  };
+
   if (isLoading) {
     return <Typography>로딩 중...</Typography>;
   }
@@ -194,8 +205,10 @@ const Question: React.FC<QuestionProps> = ({ testId, subjectId }) => {
             value={answers[currentQuestion.question_number.toString()]?.low || ''}
             onChange={(e) => handleAnswerChange('low', e.target.value)}
           />
+          <VoiceRecorder onRecordingComplete={(audioBlob) => handleVoiceRecordingComplete('low', audioBlob)} />
+          
           <TextField
-            label="Mid"
+            label="Medium"
             fullWidth
             multiline
             rows={4}
@@ -203,6 +216,8 @@ const Question: React.FC<QuestionProps> = ({ testId, subjectId }) => {
             value={answers[currentQuestion.question_number.toString()]?.medium || ''}
             onChange={(e) => handleAnswerChange('medium', e.target.value)}
           />
+          <VoiceRecorder onRecordingComplete={(audioBlob) => handleVoiceRecordingComplete('medium', audioBlob)} />
+          
           <TextField
             label="High"
             fullWidth
@@ -212,6 +227,7 @@ const Question: React.FC<QuestionProps> = ({ testId, subjectId }) => {
             value={answers[currentQuestion.question_number.toString()]?.high || ''}
             onChange={(e) => handleAnswerChange('high', e.target.value)}
           />
+          <VoiceRecorder onRecordingComplete={(audioBlob) => handleVoiceRecordingComplete('high', audioBlob)} />
         </Box>
         <Box display="flex" justifyContent="space-between" mt={2}>
           <Button variant="contained" onClick={handleSaveAnswer}>

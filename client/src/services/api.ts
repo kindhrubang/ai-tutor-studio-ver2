@@ -97,3 +97,21 @@ export const testFinetuningModel = async (modelId: string) => {
     throw error;
   }
 }
+
+export const convertSpeechToText = async (audioBlob: Blob): Promise<string> => {
+  try {
+    const formData = new FormData();
+    formData.append('audio', audioBlob, 'audio.wav');
+
+    const response = await axios.post(`${API_BASE_URL}/speech-to-text`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    return response.data.text;
+  } catch (error) {
+    console.error('음성을 텍스트로 변환하는 중 오류 발생:', error);
+    throw error;
+  }
+};

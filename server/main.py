@@ -1,10 +1,20 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.db.database import init_db, get_questions_by_info, get_answers, db_get_datalists
 from app.utils.utils import process_test_infos, save_or_update_answer, get_answer_status, get_specific_answer_from_db
 from app.services.llm_service import create_finetuning_model, get_finetuning_status, test_finetuning_model
+from google.cloud import speech
+import json
+from google.oauth2 import service_account
+
+# Google Cloud 인증 정보 설정
+credentials_dict = json.loads(settings.GOOGLE_APPLICATION_CREDENTIALS)
+credentials = service_account.Credentials.from_service_account_info(credentials_dict)
+
+# Speech-to-Text 클라이언트를 생성합니다.
+client = speech.SpeechClient(credentials=credentials)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -80,3 +90,22 @@ async def get_finetuning_status_route(job_id: str):
 async def test_finetuning_model_route(model_id: str):
     result = await test_finetuning_model(model_id)
     return result
+
+@app.post("/speech-to-text")
+async def speech_to_text(audio: UploadFile = File(...)):
+    content = await audio.read()
+    audio = speech.RecognitionAudio(content=content)
+
+    config = speech.RecognitionConfig(
+        encoding=speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
+        sample_rate_hertz=48000,  # 클라이언트의 샘플 레이트와 일치시킵니다
+        language_code="ko-KR",
+    )
+
+    response = client.recognize(config=config, audio=audio)
+
+    text = ""
+    for result in response.results:
+        text += result.alternatives[0].transcript
+
+    return {"text": text}
