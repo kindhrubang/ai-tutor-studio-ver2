@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Button, Card, CardContent, TextField, Grid } from '@mui/material';
+import { Box, Typography, Button, Card, CardContent, TextField, Grid, IconButton, Tooltip } from '@mui/material';
+import RestoreIcon from '@mui/icons-material/Restore';
 import { getQuestions, saveAnswer, getAnswerStatus, getSpecificAnswer, convertSpeechToText } from '../services/api';
 import VoiceRecorder from './VoiceRecorder';
 
@@ -33,6 +34,7 @@ const Question: React.FC<QuestionProps> = ({ testId, subjectId }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [answers, setAnswers] = useState<{[key: string]: {low: string, medium: string, high: string}}>({});
   const [answerStatus, setAnswerStatus] = useState<AnswerStatus>({});
+  const [originalAnswers, setOriginalAnswers] = useState<{[key: string]: {low: string, medium: string, high: string}}>({});
 
   useEffect(() => {
     const fetchData = async () => {
@@ -58,6 +60,7 @@ const Question: React.FC<QuestionProps> = ({ testId, subjectId }) => {
           };
         }
         setAnswers(savedAnswers);
+        setOriginalAnswers(JSON.parse(JSON.stringify(savedAnswers))); // 깊은 복사로 원본 데이터 저장
       } catch (error) {
         console.error('데이터 가져오기 중 오류 발생:', error);
       } finally {
@@ -119,6 +122,28 @@ const Question: React.FC<QuestionProps> = ({ testId, subjectId }) => {
       console.error('음성을 텍스트로 변환하는 중 오류 발생:', error);
       alert('음성을 텍스트로 변환하는데 실패했습니다.');
     }
+  };
+
+  const ResetButton: React.FC<{ onClick: () => void }> = ({ onClick }) => {
+    return (
+      <Tooltip title="원래 데이터로 되돌리기">
+        <IconButton onClick={onClick} color="primary">
+          <RestoreIcon />
+        </IconButton>
+      </Tooltip>
+    );
+  };
+
+  const handleReset = (answerType: 'low' | 'medium' | 'high') => {
+    const currentQuestion = questions[currentQuestionIndex];
+    const questionNum = currentQuestion.question_number.toString();
+    setAnswers(prev => ({
+      ...prev,
+      [questionNum]: {
+        ...prev[questionNum],
+        [answerType]: originalAnswers[questionNum][answerType]
+      }
+    }));
   };
 
   if (isLoading) {
@@ -196,37 +221,46 @@ const Question: React.FC<QuestionProps> = ({ testId, subjectId }) => {
           </CardContent>
         </Card>
         <Box mt={2}>
-          <TextField
-            label="Low"
-            fullWidth
-            multiline
-            rows={4}
-            margin="normal"
-            value={answers[currentQuestion.question_number.toString()]?.low || ''}
-            onChange={(e) => handleAnswerChange('low', e.target.value)}
-          />
+          <Box display="flex" alignItems="center">
+            <TextField
+              label="Low"
+              fullWidth
+              multiline
+              rows={4}
+              margin="normal"
+              value={answers[currentQuestion.question_number.toString()]?.low || ''}
+              onChange={(e) => handleAnswerChange('low', e.target.value)}
+            />
+            <ResetButton onClick={() => handleReset('low')} />
+          </Box>
           <VoiceRecorder onRecordingComplete={(audioBlob) => handleVoiceRecordingComplete('low', audioBlob)} />
           
-          <TextField
-            label="Medium"
-            fullWidth
-            multiline
-            rows={4}
-            margin="normal"
-            value={answers[currentQuestion.question_number.toString()]?.medium || ''}
-            onChange={(e) => handleAnswerChange('medium', e.target.value)}
-          />
+          <Box display="flex" alignItems="center">
+            <TextField
+              label="Medium"
+              fullWidth
+              multiline
+              rows={4}
+              margin="normal"
+              value={answers[currentQuestion.question_number.toString()]?.medium || ''}
+              onChange={(e) => handleAnswerChange('medium', e.target.value)}
+            />
+            <ResetButton onClick={() => handleReset('medium')} />
+          </Box>
           <VoiceRecorder onRecordingComplete={(audioBlob) => handleVoiceRecordingComplete('medium', audioBlob)} />
           
-          <TextField
-            label="High"
-            fullWidth
-            multiline
-            rows={4}
-            margin="normal"
-            value={answers[currentQuestion.question_number.toString()]?.high || ''}
-            onChange={(e) => handleAnswerChange('high', e.target.value)}
-          />
+          <Box display="flex" alignItems="center">
+            <TextField
+              label="High"
+              fullWidth
+              multiline
+              rows={4}
+              margin="normal"
+              value={answers[currentQuestion.question_number.toString()]?.high || ''}
+              onChange={(e) => handleAnswerChange('high', e.target.value)}
+            />
+            <ResetButton onClick={() => handleReset('high')} />
+          </Box>
           <VoiceRecorder onRecordingComplete={(audioBlob) => handleVoiceRecordingComplete('high', audioBlob)} />
         </Box>
         <Box display="flex" justifyContent="space-between" mt={2}>
