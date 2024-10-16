@@ -3,8 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.db.database import init_db, get_questions_by_info, get_answers, db_get_datalists
-from app.utils.utils import process_test_infos, save_or_update_answer, get_answer_status, get_specific_answer_from_db
-from app.services.llm_service import create_finetuning_model, get_finetuning_status, test_finetuning_model, create_finetuned_answers
+from app.utils.utils import process_test_infos, save_or_update_answer, get_answer_status, get_specific_answer_from_db, test_finetuning_model
+from app.services.llm_service import create_finetuning_model, get_finetuning_status, create_finetuned_answers
 from google.cloud import speech
 import json
 from google.oauth2 import service_account

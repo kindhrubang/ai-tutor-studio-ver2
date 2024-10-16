@@ -128,12 +128,6 @@ async def get_finetuning_status(job_id: str):
         print(f"Error getting finetuning status: {str(e)}")
         return {"error": str(e)}
 
-async def test_finetuning_model(model_id: str, level: str):
-    if not settings.OPENAI_API_KEY:
-        raise ValueError("OpenAI API 키가 설정되지 않았습니다.")
-    
-    return "test"
-
 async def create_finetuned_answers(model_id: str, level: str, test_id: str, subject_id: str):
     if not settings.OPENAI_API_KEY:
         raise ValueError("OpenAI API 키가 설정되지 않았습니다.")

@@ -110,3 +110,6 @@ async def create_finetuning_training_data(test_id: str, subject_id: str, level: 
     print("Sample of generated JSONL data:")
     print(result[:1000])  # 처음 1000자만 출력
     return result
+
+async def test_finetuning_model(model_id: str, level: str):
+    return "test"
