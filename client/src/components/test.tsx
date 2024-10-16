@@ -15,6 +15,14 @@ interface TestResult {
   standard_answers: any[];
   normal_answers: any[];
   finetuned_answers: any[];
+  combined_answers: {
+    question: string;
+    content: string;
+    choices: string[];
+    standard_answer: string;
+    normal_answer: string;
+    finetuned_answer: string;
+  }[];
 }
 
 interface TestDataProps {
@@ -55,7 +63,7 @@ const TestData: React.FC<TestDataProps> = ({ testId, subjectId, level }) => {
     return <Typography color="error">{error}</Typography>;
   }
 
-  if (!testResult) {
+  if (!testResult || !testResult.combined_answers) {
     return <Typography>테스트 결과가 없습니다.</Typography>;
   }
 
@@ -73,7 +81,7 @@ const TestData: React.FC<TestDataProps> = ({ testId, subjectId, level }) => {
           flexWrap="wrap"
           gap="5px"
         >
-          {testResult.standard_answers.map((_, index) => (
+          {testResult.combined_answers.map((_, index) => (
             <Button
               key={index}
               variant="outlined"
@@ -107,14 +115,23 @@ const TestData: React.FC<TestDataProps> = ({ testId, subjectId, level }) => {
         </Card>
         
         <Box mt={2}>
-          <Typography variant="h6">문제 {currentQuestionIndex + 1}</Typography>
+          <Typography variant="h6">문제 {currentQuestionIndex + 1}. {testResult.combined_answers[currentQuestionIndex].question}</Typography>
+          <Typography variant="body1" paragraph>
+            {testResult.combined_answers[currentQuestionIndex].content}
+          </Typography>
+          <Typography variant="subtitle1" gutterBottom>보기:</Typography>
+          <ol>
+            {testResult.combined_answers[currentQuestionIndex].choices.map((choice, index) => (
+              <li key={index}>{choice}</li>
+            ))}
+          </ol>
           <TextField
             label="표준 답안"
             fullWidth
             multiline
             rows={4}
             margin="normal"
-            value={testResult.standard_answers[currentQuestionIndex].answer}
+            value={testResult.combined_answers[currentQuestionIndex].standard_answer}
             InputProps={{ readOnly: true }}
           />
           <TextField
@@ -123,7 +140,7 @@ const TestData: React.FC<TestDataProps> = ({ testId, subjectId, level }) => {
             multiline
             rows={4}
             margin="normal"
-            value={testResult.normal_answers[currentQuestionIndex].answer}
+            value={testResult.combined_answers[currentQuestionIndex].normal_answer}
             InputProps={{ readOnly: true }}
           />
           <Typography>
@@ -138,7 +155,7 @@ const TestData: React.FC<TestDataProps> = ({ testId, subjectId, level }) => {
             multiline
             rows={4}
             margin="normal"
-            value={testResult.finetuned_answers[currentQuestionIndex].answer}
+            value={testResult.combined_answers[currentQuestionIndex].finetuned_answer}
             InputProps={{ readOnly: true }}
           />
           <Typography>

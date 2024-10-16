@@ -128,9 +128,22 @@ async def calculate_semantic_similarity(text1: str, text2: str) -> float:
     return cosine_similarity([vector1], [vector2])[0][0]
 
 async def test_finetuned_answers(test_id: str, subject_id: str, level: str):
+    questions = await get_questions_by_info(test_id, subject_id)
     standard_answers = await get_level_answers(test_id, subject_id, f"standard_{level}")
     normal_answers = await get_level_answers(test_id, subject_id, f"normal_{level}")
     finetuned_answers = await get_level_answers(test_id, subject_id, level)
+
+    # 문제 정보와 답변을 결합
+    combined_answers = []
+    for q, s, n, f in zip(questions, standard_answers, normal_answers, finetuned_answers):
+        combined_answers.append({
+            "question": q["question"],
+            "content": q["content"],
+            "choices": q["choices"],
+            "standard_answer": s["answer"],
+            "normal_answer": n["answer"],
+            "finetuned_answer": f["answer"],
+        })
 
     cosine_similarities_standard_finetuned = []
     semantic_similarities_standard_finetuned = []
@@ -162,7 +175,5 @@ async def test_finetuned_answers(test_id: str, subject_id: str, level: str):
         "semantic_similarities_finetuned": semantic_similarities_standard_finetuned,
         "cosine_similarities_normal": cosine_similarities_standard_normal,
         "semantic_similarities_normal": semantic_similarities_standard_normal,
-        "standard_answers": standard_answers,
-        "normal_answers": normal_answers,
-        "finetuned_answers": finetuned_answers
+        "combined_answers": combined_answers
     }
