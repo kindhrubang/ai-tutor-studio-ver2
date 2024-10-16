@@ -206,6 +206,10 @@ const Tests: React.FC = () => {
     }
   };
 
+  const handleTestClick = (testId: string, subjectId: string, level: string) => {
+    navigate(`/tests/${testId}/${subjectId}/${level}`);
+  };
+
   if (error) {
     return <Typography color="error">{error}</Typography>;
   }
@@ -266,7 +270,7 @@ const Tests: React.FC = () => {
                       <Button
                         variant="contained"
                         disabled={!isModelComplete}
-                        onClick={() => navigate(`/tests/${model?.fine_tuned_model}`)}
+                        onClick={() => handleTestClick(testInfo.testId, testInfo.subjectId, level)}
                       >
                         테스트
                       </Button>

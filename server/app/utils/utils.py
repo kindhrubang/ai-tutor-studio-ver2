@@ -1,6 +1,10 @@
 from app.core.config import settings
-from app.db.database import get_test_infos, get_answers, save_answer, get_answer_collection, check_answer_exists, update_test_info_ready_status, get_questions_by_info
+from app.db.database import get_test_infos, get_answers, save_answer, get_answer_collection, check_answer_exists, update_test_info_ready_status, get_questions_by_info, get_level_answers
 import json
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.feature_extraction.text import CountVectorizer
+from sentence_transformers import SentenceTransformer
+import numpy as np
 
 async def process_test_infos():
     test_infos = await get_test_infos()
@@ -111,5 +115,39 @@ async def create_finetuning_training_data(test_id: str, subject_id: str, level: 
     print(result[:1000])  # 처음 1000자만 출력
     return result
 
-async def test_finetuning_model(model_id: str, level: str):
-    return "test"
+async def calculate_cosine_similarity(text1: str, text2: str) -> float:
+    vectorizer = CountVectorizer().fit([text1, text2])
+    vector1 = vectorizer.transform([text1]).toarray()[0]
+    vector2 = vectorizer.transform([text2]).toarray()[0]
+    return cosine_similarity([vector1], [vector2])[0][0]
+
+async def calculate_semantic_similarity(text1: str, text2: str) -> float:
+    model = SentenceTransformer('distiluse-base-multilingual-cased-v1')
+    vector1 = model.encode([text1])[0]
+    vector2 = model.encode([text2])[0]
+    return cosine_similarity([vector1], [vector2])[0][0]
+
+async def test_finetuned_answers(test_id: str, subject_id: str, level: str):
+    standard_answers = await get_level_answers(test_id, subject_id, f"standard_{level}")
+    finetuned_answers = await get_level_answers(test_id, subject_id, level)
+
+    cosine_similarities = []
+    semantic_similarities = []
+
+    for standard, finetuned in zip(standard_answers, finetuned_answers):
+        cosine_sim = await calculate_cosine_similarity(standard['answer'], finetuned['answer'])
+        semantic_sim = await calculate_semantic_similarity(standard['answer'], finetuned['answer'])
+        cosine_similarities.append(float(cosine_sim))  # NumPy float32를 Python float로 변환
+        semantic_similarities.append(float(semantic_sim))  # NumPy float32를 Python float로 변환
+
+    avg_cosine_similarity = float(np.mean(cosine_similarities) * 100)  # NumPy float32를 Python float로 변환
+    avg_semantic_similarity = float(np.mean(semantic_similarities) * 100)  # NumPy float32를 Python float로 변환
+
+    return {
+        "avg_cosine_similarity": avg_cosine_similarity,
+        "avg_semantic_similarity": avg_semantic_similarity,
+        "cosine_similarities": cosine_similarities,
+        "semantic_similarities": semantic_similarities,
+        "standard_answers": standard_answers,
+        "finetuned_answers": finetuned_answers
+    }

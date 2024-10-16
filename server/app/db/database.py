@@ -197,3 +197,13 @@ async def save_level_answer(test_id: str, subject_id: str, level: str, answer_da
         {"$set": document},
         upsert=True
     )
+
+async def get_level_answers(test_id: str, subject_id: str, level: str):
+    collection = await get_collection("level_answers")
+    cursor = collection.find({
+        "testId": int(test_id),
+        "subjectId": int(subject_id),
+        "level": level
+    })
+    answers = await cursor.to_list(length=None)
+    return json.loads(json.dumps(answers, cls=JSONEncoder))

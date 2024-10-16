@@ -88,12 +88,12 @@ export const getFinetuningStatus = async (jobId: string) => {
   }
 }
 
-export const testFinetuningModel = async (modelId: string) => {
+export const testFinetunedAnswers = async (testId: string, subjectId: string, level: string) => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/finetuning/test/${modelId}`);
+    const response = await axios.get(`${API_BASE_URL}/finetuned_answers/${testId}/${subjectId}/${level}`);
     return response.data;
   } catch (error) {
-    console.error('Finetuning 모델 테스트 중 오류 발생:', error);
+    console.error('Finetuned 답변 테스트 중 오류 발생:', error);
     throw error;
   }
 }
