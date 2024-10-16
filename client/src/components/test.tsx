@@ -1,14 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Card, CardContent, CircularProgress } from '@mui/material';
+import { Box, Typography, Card, CardContent, TextField, Grid, Button } from '@mui/material';
 import { useParams } from 'react-router-dom';
 import { testFinetunedAnswers } from '../services/api';
 
 interface TestResult {
-  avg_cosine_similarity: number;
-  avg_semantic_similarity: number;
-  cosine_similarities: number[];
-  semantic_similarities: number[];
+  avg_cosine_similarity_finetuned: number;
+  avg_semantic_similarity_finetuned: number;
+  avg_cosine_similarity_normal: number;
+  avg_semantic_similarity_normal: number;
+  cosine_similarities_finetuned: number[];
+  semantic_similarities_finetuned: number[];
+  cosine_similarities_normal: number[];
+  semantic_similarities_normal: number[];
   standard_answers: any[];
+  normal_answers: any[];
   finetuned_answers: any[];
 }
 
@@ -22,6 +27,7 @@ const TestData: React.FC<TestDataProps> = ({ testId, subjectId, level }) => {
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
   useEffect(() => {
     const fetchTestData = async () => {
@@ -42,7 +48,7 @@ const TestData: React.FC<TestDataProps> = ({ testId, subjectId, level }) => {
   }, [testId, subjectId, level]);
 
   if (loading) {
-    return <CircularProgress />;
+    return <Typography>로딩 중...</Typography>;
   }
 
   if (error) {
@@ -53,26 +59,97 @@ const TestData: React.FC<TestDataProps> = ({ testId, subjectId, level }) => {
     return <Typography>테스트 결과가 없습니다.</Typography>;
   }
 
+  const handleQuestionSelect = (index: number) => {
+    setCurrentQuestionIndex(index);
+  };
+
   return (
-    <Box>
-      <Card>
-        <CardContent>
-          <Typography variant="h5" gutterBottom>테스트 결과</Typography>
-          <Typography>평균 코사인 유사도: {testResult.avg_cosine_similarity.toFixed(2)}%</Typography>
-          <Typography>평균 시맨틱 유사도: {testResult.avg_semantic_similarity.toFixed(2)}%</Typography>
-          
-          {testResult.standard_answers.map((standard, index) => (
-            <Box key={index} mt={2}>
-              <Typography variant="h6">문제 {index + 1}</Typography>
-              <Typography>표준 답안: {standard.answer}</Typography>
-              <Typography>파인튜닝된 답안: {testResult.finetuned_answers[index].answer}</Typography>
-              <Typography>코사인 유사도: {(testResult.cosine_similarities[index] * 100).toFixed(2)}%</Typography>
-              <Typography>시맨틱 유사도: {(testResult.semantic_similarities[index] * 100).toFixed(2)}%</Typography>
-            </Box>
+    <Grid container spacing={2}>
+      <Grid item xs={2}>
+        <Box
+          display="flex"
+          flexDirection="row"
+          alignItems="center"
+          flexWrap="wrap"
+          gap="5px"
+        >
+          {testResult.standard_answers.map((_, index) => (
+            <Button
+              key={index}
+              variant="outlined"
+              style={{
+                borderRadius: '50%',
+                width: '20px',
+                height: '20px',
+                minWidth: '20px',
+                minHeight: '20px',
+                padding: 0,
+                margin: '5px 0',
+                backgroundColor: index === currentQuestionIndex ? 'blue' : 'lightgray',
+                color: index === currentQuestionIndex ? 'white' : 'black',
+              }}
+              onClick={() => handleQuestionSelect(index)}
+            >
+              {index + 1}
+            </Button>
           ))}
-        </CardContent>
-      </Card>
-    </Box>
+        </Box>
+      </Grid>
+      <Grid item xs={10}>
+        <Card>
+          <CardContent>
+            <Typography variant="h5" gutterBottom>테스트 결과</Typography>
+            <Typography>파인튜닝 모델 평균 코사인 유사도: {testResult.avg_cosine_similarity_finetuned.toFixed(2)}%</Typography>
+            <Typography>파인튜닝 모델 평균 시맨틱 유사도: {testResult.avg_semantic_similarity_finetuned.toFixed(2)}%</Typography>
+            <Typography>일반 모델 평균 코사인 유사도: {testResult.avg_cosine_similarity_normal.toFixed(2)}%</Typography>
+            <Typography>일반 모델 평균 시맨틱 유사도: {testResult.avg_semantic_similarity_normal.toFixed(2)}%</Typography>
+          </CardContent>
+        </Card>
+        
+        <Box mt={2}>
+          <Typography variant="h6">문제 {currentQuestionIndex + 1}</Typography>
+          <TextField
+            label="표준 답안"
+            fullWidth
+            multiline
+            rows={4}
+            margin="normal"
+            value={testResult.standard_answers[currentQuestionIndex].answer}
+            InputProps={{ readOnly: true }}
+          />
+          <TextField
+            label="일반 모델 답안"
+            fullWidth
+            multiline
+            rows={4}
+            margin="normal"
+            value={testResult.normal_answers[currentQuestionIndex].answer}
+            InputProps={{ readOnly: true }}
+          />
+          <Typography>
+            코사인 유사도: {(testResult.cosine_similarities_normal[currentQuestionIndex] * 100).toFixed(2)}%
+          </Typography>
+          <Typography>
+            시맨틱 유사도: {(testResult.semantic_similarities_normal[currentQuestionIndex] * 100).toFixed(2)}%
+          </Typography>
+          <TextField
+            label="파인튜닝 모델 답안"
+            fullWidth
+            multiline
+            rows={4}
+            margin="normal"
+            value={testResult.finetuned_answers[currentQuestionIndex].answer}
+            InputProps={{ readOnly: true }}
+          />
+          <Typography>
+            코사인 유사도: {(testResult.cosine_similarities_finetuned[currentQuestionIndex] * 100).toFixed(2)}%
+          </Typography>
+          <Typography>
+            시맨틱 유사도: {(testResult.semantic_similarities_finetuned[currentQuestionIndex] * 100).toFixed(2)}%
+          </Typography>
+        </Box>
+      </Grid>
+    </Grid>
   );
 };
 

@@ -129,25 +129,40 @@ async def calculate_semantic_similarity(text1: str, text2: str) -> float:
 
 async def test_finetuned_answers(test_id: str, subject_id: str, level: str):
     standard_answers = await get_level_answers(test_id, subject_id, f"standard_{level}")
+    normal_answers = await get_level_answers(test_id, subject_id, f"normal_{level}")
     finetuned_answers = await get_level_answers(test_id, subject_id, level)
 
-    cosine_similarities = []
-    semantic_similarities = []
+    cosine_similarities_standard_finetuned = []
+    semantic_similarities_standard_finetuned = []
+    cosine_similarities_standard_normal = []
+    semantic_similarities_standard_normal = []
 
-    for standard, finetuned in zip(standard_answers, finetuned_answers):
-        cosine_sim = await calculate_cosine_similarity(standard['answer'], finetuned['answer'])
-        semantic_sim = await calculate_semantic_similarity(standard['answer'], finetuned['answer'])
-        cosine_similarities.append(float(cosine_sim))  # NumPy float32를 Python float로 변환
-        semantic_similarities.append(float(semantic_sim))  # NumPy float32를 Python float로 변환
+    for standard, normal, finetuned in zip(standard_answers, normal_answers, finetuned_answers):
+        cosine_sim_finetuned = await calculate_cosine_similarity(standard['answer'], finetuned['answer'])
+        semantic_sim_finetuned = await calculate_semantic_similarity(standard['answer'], finetuned['answer'])
+        cosine_sim_normal = await calculate_cosine_similarity(standard['answer'], normal['answer'])
+        semantic_sim_normal = await calculate_semantic_similarity(standard['answer'], normal['answer'])
+        
+        cosine_similarities_standard_finetuned.append(float(cosine_sim_finetuned))
+        semantic_similarities_standard_finetuned.append(float(semantic_sim_finetuned))
+        cosine_similarities_standard_normal.append(float(cosine_sim_normal))
+        semantic_similarities_standard_normal.append(float(semantic_sim_normal))
 
-    avg_cosine_similarity = float(np.mean(cosine_similarities) * 100)  # NumPy float32를 Python float로 변환
-    avg_semantic_similarity = float(np.mean(semantic_similarities) * 100)  # NumPy float32를 Python float로 변환
+    avg_cosine_similarity_finetuned = float(np.mean(cosine_similarities_standard_finetuned) * 100)
+    avg_semantic_similarity_finetuned = float(np.mean(semantic_similarities_standard_finetuned) * 100)
+    avg_cosine_similarity_normal = float(np.mean(cosine_similarities_standard_normal) * 100)
+    avg_semantic_similarity_normal = float(np.mean(semantic_similarities_standard_normal) * 100)
 
     return {
-        "avg_cosine_similarity": avg_cosine_similarity,
-        "avg_semantic_similarity": avg_semantic_similarity,
-        "cosine_similarities": cosine_similarities,
-        "semantic_similarities": semantic_similarities,
+        "avg_cosine_similarity_finetuned": avg_cosine_similarity_finetuned,
+        "avg_semantic_similarity_finetuned": avg_semantic_similarity_finetuned,
+        "avg_cosine_similarity_normal": avg_cosine_similarity_normal,
+        "avg_semantic_similarity_normal": avg_semantic_similarity_normal,
+        "cosine_similarities_finetuned": cosine_similarities_standard_finetuned,
+        "semantic_similarities_finetuned": semantic_similarities_standard_finetuned,
+        "cosine_similarities_normal": cosine_similarities_standard_normal,
+        "semantic_similarities_normal": semantic_similarities_standard_normal,
         "standard_answers": standard_answers,
+        "normal_answers": normal_answers,
         "finetuned_answers": finetuned_answers
     }
