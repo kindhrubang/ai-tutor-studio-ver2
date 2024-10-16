@@ -115,3 +115,13 @@ export const convertSpeechToText = async (audioBlob: Blob): Promise<string> => {
     throw error;
   }
 };
+
+export const createFinetunedAnswers = async (modelId: string, level: string, testId: string, subjectId: string) => {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/finetuned_answers/${modelId}/${level}/${testId}/${subjectId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Finetuned 답변 생성 중 오류 발생:', error);
+    throw error;
+  }
+};

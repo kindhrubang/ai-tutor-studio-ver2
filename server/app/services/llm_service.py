@@ -5,7 +5,7 @@ import asyncio
 import tempfile
 import os
 import json
-from app.db.database import save_llm_model, update_llm_model_status
+from app.db.database import save_llm_model, update_llm_model_status, get_system_prompt, get_questions_by_info, get_answers, save_level_answer
 
 async def create_finetuning_model(test_id: str, subject_id: str, level: str):
     if not settings.OPENAI_API_KEY:
@@ -76,7 +76,7 @@ async def create_finetuning_model(test_id: str, subject_id: str, level: str):
     except Exception as e:
         print(f"Error creating finetuning model: {str(e)}")
         print(f"Training data sample: {training_data[:500]}")  # 트레이닝 데이터 샘플 출력
-        # 에러 발생 시 데이터베이스에 실패 상태 저장
+        # 에러 발생 시 데이터베스에 실패 상태 저장
         await save_llm_model(
             test_id,
             subject_id,
@@ -128,21 +128,48 @@ async def get_finetuning_status(job_id: str):
         print(f"Error getting finetuning status: {str(e)}")
         return {"error": str(e)}
 
-async def test_finetuning_model(model_id: str):
+async def test_finetuning_model(model_id: str, level: str):
+    if not settings.OPENAI_API_KEY:
+        raise ValueError("OpenAI API 키가 설정되지 않았습니다.")
+    
+    return "test"
+
+async def create_finetuned_answers(model_id: str, level: str, test_id: str, subject_id: str):
     if not settings.OPENAI_API_KEY:
         raise ValueError("OpenAI API 키가 설정되지 않았습니다.")
     
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
-
+    system_prompt = await get_system_prompt(level)
+    prompt = "문제의 풀이를 작성해줘"
+    
+    questions = await get_questions_by_info(test_id, subject_id)
+    base_answers = await get_answers(test_id, subject_id, "base_answer")
+    
     try:
-        response = client.chat.completions.create(
-            model=model_id,
-            messages=[
-                {"role": "system", "content": "당신은 영어 문제에 풀이를 제공하는 AI 에이전트입니다."},
-                {"role": "user", "content": "첫번째 문제와 풀이를 보여주세요."}
-            ]
-        )
-        return response
+        for question, base_answer in zip(questions, base_answers):
+            response = client.chat.completions.create(
+                model=model_id,
+                temperature=0.3,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "system", "content": question["question"]},
+                    {"role": "system", "content": question["content"]},
+                    {"role": "system", "content": "\n".join(question["choices"])},
+                    {"role": "system", "content": base_answer["answer"]},
+                    {"role": "user", "content": prompt},
+                ],
+            )
+            
+            finetuned_answer = response.choices[0].message.content
+            
+            await save_level_answer(test_id, subject_id, level, {
+                "question_num": question["question_number"],
+                "answer": finetuned_answer,
+                "test_month": question["test_month"],
+                "subject_name": question["subject_name"]
+            })
+        
+        return {"status": "completed"}
     except Exception as e:
-        print(f"Error testing finetuning model: {str(e)}")
+        print(f"Error creating finetuned answers: {str(e)}")
         return {"error": str(e)}
