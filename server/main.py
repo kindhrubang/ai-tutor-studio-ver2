@@ -106,8 +106,6 @@ async def speech_to_text(level: str = Form(...), question: str = Form(...), audi
     question_data = json.loads(question)
     refined_text = await refine_speech_to_text(text, level, question_data)
 
-    print(refined_text)
-
     return {"text": refined_text}
 
 @app.get("/finetuned_answers/{test_id}/{subject_id}/{level}")
