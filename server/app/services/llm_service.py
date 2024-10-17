@@ -167,3 +167,29 @@ async def create_finetuned_answers(model_id: str, level: str, test_id: str, subj
     except Exception as e:
         print(f"Error creating finetuned answers: {str(e)}")
         return {"error": str(e)}
+
+async def refine_speech_to_text(text: str, level: str, question: dict):
+    if not settings.OPENAI_API_KEY:
+        raise ValueError("OpenAI API 키가 설정되지 않았습니다.")
+    
+    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+    system_prompt = await get_system_prompt(level)
+    
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini-2024-07-18",
+            temperature=0.3,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"문제: {question['question']}\n내용: {question['content']}\n보기: {', '.join(question['choices'])}"},
+                {"role": "user", "content": f"음성 인식 결과: {text}"},
+                {"role": "user", "content": "위의 음성 인식 결과는 문제의 풀이야. 시스템 프롬프트에 맞게 정제해서 풀이를 작성해줘."},
+            ],
+        )
+        
+        refined_text = response.choices[0].message.content
+        return refined_text
+    except Exception as e:
+        print(f"Error refining speech to text: {str(e)}")
+        return text

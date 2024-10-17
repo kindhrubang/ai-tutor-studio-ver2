@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { QuestionData } from '../components/question'; // QuestionData 타입을 import 합니다.
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -98,12 +99,16 @@ export const testFinetunedAnswers = async (testId: string, subjectId: string, le
   }
 }
 
-export const convertSpeechToText = async (audioBlob: Blob): Promise<string> => {
+export const convertSpeechToText = async (level: string, question: QuestionData, audioBlob: Blob): Promise<string> => {
   try {
     const formData = new FormData();
     formData.append('audio', audioBlob, 'audio.wav');
 
-    const response = await axios.post(`${API_BASE_URL}/speech-to-text`, formData, {
+    const response = await axios.post(`${API_BASE_URL}/speech-to-text`, {
+      level: level,
+      question: JSON.stringify(question),
+      audio: audioBlob,
+    }, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

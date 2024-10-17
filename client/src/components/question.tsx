@@ -4,7 +4,7 @@ import RestoreIcon from '@mui/icons-material/Restore';
 import { getQuestions, saveAnswer, getAnswerStatus, getSpecificAnswer, convertSpeechToText } from '../services/api';
 import VoiceRecorder from './VoiceRecorder';
 
-interface QuestionData {
+export interface QuestionData {
   question_number: number;
   question: string;
   content: string;
@@ -116,7 +116,7 @@ const Question: React.FC<QuestionProps> = ({ testId, subjectId }) => {
 
   const handleVoiceRecordingComplete = async (answerType: 'low' | 'medium' | 'high', audioBlob: Blob) => {
     try {
-      const text = await convertSpeechToText(audioBlob);
+      const text = await convertSpeechToText(answerType, currentQuestion, audioBlob);
       handleAnswerChange(answerType, text);
     } catch (error) {
       console.error('음성을 텍스트로 변환하는 중 오류 발생:', error);
