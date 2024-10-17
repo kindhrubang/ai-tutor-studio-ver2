@@ -1,10 +1,10 @@
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.db.database import init_db, get_questions_by_info, get_answers, db_get_datalists
-from app.utils.utils import process_test_infos, save_or_update_answer, get_answer_status, get_specific_answer_from_db
-from app.services.llm_service import create_finetuning_model, get_finetuning_status, test_finetuning_model
+from app.utils.utils import process_test_infos, save_or_update_answer, get_answer_status, get_specific_answer_from_db, test_finetuned_answers
+from app.services.llm_service import create_finetuning_model, get_finetuning_status, create_finetuned_answers, refine_speech_to_text
 from google.cloud import speech
 import json
 from google.oauth2 import service_account
@@ -86,19 +86,14 @@ async def get_finetuning_status_route(job_id: str):
     result = await get_finetuning_status(job_id)
     return result
 
-@app.get("/finetuning/test/{model_id}")
-async def test_finetuning_model_route(model_id: str):
-    result = await test_finetuning_model(model_id)
-    return result
-
 @app.post("/speech-to-text")
-async def speech_to_text(audio: UploadFile = File(...)):
+async def speech_to_text(level: str = Form(...), question: str = Form(...), audio: UploadFile = File(...)):
     content = await audio.read()
     audio = speech.RecognitionAudio(content=content)
 
     config = speech.RecognitionConfig(
         encoding=speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
-        sample_rate_hertz=48000,  # 클라이언트의 샘플 레이트와 일치시킵니다
+        sample_rate_hertz=48000,
         language_code="ko-KR",
     )
 
@@ -108,4 +103,17 @@ async def speech_to_text(audio: UploadFile = File(...)):
     for result in response.results:
         text += result.alternatives[0].transcript
 
-    return {"text": text}
+    question_data = json.loads(question)
+    refined_text = await refine_speech_to_text(text, level, question_data)
+
+    return {"text": refined_text}
+
+@app.get("/finetuned_answers/{test_id}/{subject_id}/{level}")
+async def get_finetuned_answers(test_id: str, subject_id: str, level: str):
+    result = await test_finetuned_answers(test_id, subject_id, level)
+    return result
+
+@app.post("/finetuned_answers/{model_id}/{level}/{test_id}/{subject_id}")
+async def create_finetuned_answers_route(model_id: str, level: str, test_id: str, subject_id: str):
+    result = await create_finetuned_answers(model_id, level, test_id, subject_id)
+    return result

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { QuestionData } from '../components/question'; // QuestionData 타입을 import 합니다.
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -88,22 +89,26 @@ export const getFinetuningStatus = async (jobId: string) => {
   }
 }
 
-export const testFinetuningModel = async (modelId: string) => {
+export const testFinetunedAnswers = async (testId: string, subjectId: string, level: string) => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/finetuning/test/${modelId}`);
+    const response = await axios.get(`${API_BASE_URL}/finetuned_answers/${testId}/${subjectId}/${level}`);
     return response.data;
   } catch (error) {
-    console.error('Finetuning 모델 테스트 중 오류 발생:', error);
+    console.error('Finetuned 답변 테스트 중 오류 발생:', error);
     throw error;
   }
 }
 
-export const convertSpeechToText = async (audioBlob: Blob): Promise<string> => {
+export const convertSpeechToText = async (level: string, question: QuestionData, audioBlob: Blob): Promise<string> => {
   try {
     const formData = new FormData();
     formData.append('audio', audioBlob, 'audio.wav');
 
-    const response = await axios.post(`${API_BASE_URL}/speech-to-text`, formData, {
+    const response = await axios.post(`${API_BASE_URL}/speech-to-text`, {
+      level: level,
+      question: JSON.stringify(question),
+      audio: audioBlob,
+    }, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -112,6 +117,16 @@ export const convertSpeechToText = async (audioBlob: Blob): Promise<string> => {
     return response.data.text;
   } catch (error) {
     console.error('음성을 텍스트로 변환하는 중 오류 발생:', error);
+    throw error;
+  }
+};
+
+export const createFinetunedAnswers = async (modelId: string, level: string, testId: string, subjectId: string) => {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/finetuned_answers/${modelId}/${level}/${testId}/${subjectId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Finetuned 답변 생성 중 오류 발생:', error);
     throw error;
   }
 };

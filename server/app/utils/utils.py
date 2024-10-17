@@ -1,6 +1,10 @@
 from app.core.config import settings
-from app.db.database import get_test_infos, get_answers, save_answer, get_answer_collection, check_answer_exists, update_test_info_ready_status, get_questions_by_info
+from app.db.database import get_test_infos, get_answers, save_answer, get_answer_collection, check_answer_exists, update_test_info_ready_status, get_questions_by_info, get_level_answers
 import json
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.feature_extraction.text import CountVectorizer
+from sentence_transformers import SentenceTransformer
+import numpy as np
 
 async def process_test_infos():
     test_infos = await get_test_infos()
@@ -110,3 +114,66 @@ async def create_finetuning_training_data(test_id: str, subject_id: str, level: 
     print("Sample of generated JSONL data:")
     print(result[:1000])  # 처음 1000자만 출력
     return result
+
+async def calculate_cosine_similarity(text1: str, text2: str) -> float:
+    vectorizer = CountVectorizer().fit([text1, text2])
+    vector1 = vectorizer.transform([text1]).toarray()[0]
+    vector2 = vectorizer.transform([text2]).toarray()[0]
+    return cosine_similarity([vector1], [vector2])[0][0]
+
+async def calculate_semantic_similarity(text1: str, text2: str) -> float:
+    model = SentenceTransformer('distiluse-base-multilingual-cased-v1')
+    vector1 = model.encode([text1])[0]
+    vector2 = model.encode([text2])[0]
+    return cosine_similarity([vector1], [vector2])[0][0]
+
+async def test_finetuned_answers(test_id: str, subject_id: str, level: str):
+    questions = await get_questions_by_info(test_id, subject_id)
+    standard_answers = await get_level_answers(test_id, subject_id, f"standard_{level}")
+    normal_answers = await get_level_answers(test_id, subject_id, f"normal_{level}")
+    finetuned_answers = await get_level_answers(test_id, subject_id, level)
+
+    # 문제 정보와 답변을 결합
+    combined_answers = []
+    for q, s, n, f in zip(questions, standard_answers, normal_answers, finetuned_answers):
+        combined_answers.append({
+            "question": q["question"],
+            "content": q["content"],
+            "choices": q["choices"],
+            "standard_answer": s["answer"],
+            "normal_answer": n["answer"],
+            "finetuned_answer": f["answer"],
+        })
+
+    cosine_similarities_standard_finetuned = []
+    semantic_similarities_standard_finetuned = []
+    cosine_similarities_standard_normal = []
+    semantic_similarities_standard_normal = []
+
+    for standard, normal, finetuned in zip(standard_answers, normal_answers, finetuned_answers):
+        cosine_sim_finetuned = await calculate_cosine_similarity(standard['answer'], finetuned['answer'])
+        semantic_sim_finetuned = await calculate_semantic_similarity(standard['answer'], finetuned['answer'])
+        cosine_sim_normal = await calculate_cosine_similarity(standard['answer'], normal['answer'])
+        semantic_sim_normal = await calculate_semantic_similarity(standard['answer'], normal['answer'])
+        
+        cosine_similarities_standard_finetuned.append(float(cosine_sim_finetuned))
+        semantic_similarities_standard_finetuned.append(float(semantic_sim_finetuned))
+        cosine_similarities_standard_normal.append(float(cosine_sim_normal))
+        semantic_similarities_standard_normal.append(float(semantic_sim_normal))
+
+    avg_cosine_similarity_finetuned = float(np.mean(cosine_similarities_standard_finetuned) * 100)
+    avg_semantic_similarity_finetuned = float(np.mean(semantic_similarities_standard_finetuned) * 100)
+    avg_cosine_similarity_normal = float(np.mean(cosine_similarities_standard_normal) * 100)
+    avg_semantic_similarity_normal = float(np.mean(semantic_similarities_standard_normal) * 100)
+
+    return {
+        "avg_cosine_similarity_finetuned": avg_cosine_similarity_finetuned,
+        "avg_semantic_similarity_finetuned": avg_semantic_similarity_finetuned,
+        "avg_cosine_similarity_normal": avg_cosine_similarity_normal,
+        "avg_semantic_similarity_normal": avg_semantic_similarity_normal,
+        "cosine_similarities_finetuned": cosine_similarities_standard_finetuned,
+        "semantic_similarities_finetuned": semantic_similarities_standard_finetuned,
+        "cosine_similarities_normal": cosine_similarities_standard_normal,
+        "semantic_similarities_normal": semantic_similarities_standard_normal,
+        "combined_answers": combined_answers
+    }

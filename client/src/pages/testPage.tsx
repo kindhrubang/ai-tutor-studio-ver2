@@ -4,10 +4,11 @@ import TestData from '../components/test';
 import { useParams } from 'react-router-dom';
 
 const TestPage: React.FC = () => {
-  const { modelId } = useParams();
+  const { testId, subjectId, level } = useParams<{ testId: string; subjectId: string; level: string }>();
+  
   return (
     <Container>
-      <TestData modelId={modelId || ''} />
+      <TestData testId={testId} subjectId={subjectId} level={level} />
     </Container>
   );
 };

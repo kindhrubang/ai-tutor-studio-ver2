@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Paper, Typography, Button, CircularProgress } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { getDatalists, createFinetuningModel, getFinetuningStatus } from '../services/api';
+import { getDatalists, createFinetuningModel, getFinetuningStatus, createFinetunedAnswers } from '../services/api';
 
 interface ModelInfo {
   fine_tuned_model: string | null;
   status: 'idle' | 'creating' | 'pending' | 'running' | 'succeeded' | 'failed' | 'validating_files';
   job_id: string | null;
+  answers_status: 'idle' | 'creating' | 'completed';
 }
 
 interface TestsInfo {
@@ -27,6 +28,7 @@ interface ModelStatus {
   [key: string]: {
     status: 'idle' | 'creating' | 'pending' | 'running' | 'succeeded' | 'failed' | 'validating_files';
     progress?: number;
+    answers_status: 'idle' | 'creating' | 'completed' | 'failed';
   };
 }
 
@@ -79,10 +81,11 @@ const Tests: React.FC = () => {
         if (modelInfo) {
           initialStatus[key] = { 
             status: modelInfo.status,
-            progress: modelInfo.status === 'succeeded' ? 100 : (modelInfo.status === 'running' ? 50 : 0)
+            progress: modelInfo.status === 'succeeded' ? 100 : (modelInfo.status === 'running' ? 50 : 0),
+            answers_status: modelInfo.answers_status
           };
         } else {
-          initialStatus[key] = { status: 'idle', progress: 0 };
+          initialStatus[key] = { status: 'idle', progress: 0, answers_status: 'idle' };
         }
       });
     });
@@ -94,7 +97,7 @@ const Tests: React.FC = () => {
     try {
       setModelStatus(prev => ({
         ...prev,
-        [statusKey]: { status: 'creating', progress: 0 }
+        [statusKey]: { status: 'creating', progress: 0, answers_status: 'idle' }
       }));
       const result = await createFinetuningModel(testId, subjectId, level);
       if (result.error) {
@@ -102,7 +105,7 @@ const Tests: React.FC = () => {
       }
       setModelStatus(prev => ({
         ...prev,
-        [statusKey]: { status: 'pending', progress: 0 }
+        [statusKey]: { status: 'pending', progress: 0, answers_status: 'idle' }
       }));
       activeJobsRef.current.add(result.job_id);
       await checkModelStatus(result.job_id, testId, subjectId, level);
@@ -111,7 +114,7 @@ const Tests: React.FC = () => {
       setError(`파인튜닝 모델 생성 중 오류가 발생했습니다: ${(err as Error).message}`);
       setModelStatus(prev => ({
         ...prev,
-        [statusKey]: { status: 'failed', progress: 0 }
+        [statusKey]: { status: 'failed', progress: 0, answers_status: 'idle' }
       }));
     }
   };
@@ -132,7 +135,8 @@ const Tests: React.FC = () => {
         ...prev,
         [statusKey]: { 
           status: status.status as ModelStatus[string]['status'],
-          progress: status.status === 'succeeded' ? 100 : (status.status === 'running' ? 50 : 0)
+          progress: status.status === 'succeeded' ? 100 : (status.status === 'running' ? 50 : 0),
+          answers_status: prev[statusKey]?.answers_status || 'idle'
         }
       }));
       if (status.status !== 'succeeded' && status.status !== 'failed' && status.status !== 'cancelled') {
@@ -145,11 +149,37 @@ const Tests: React.FC = () => {
       console.error('Error checking model status:', err);
       setModelStatus(prev => ({
         ...prev,
-        [statusKey]: { status: 'failed', progress: 0 }
+        [statusKey]: { status: 'failed', progress: 0, answers_status: 'idle' }
       }));
       activeJobsRef.current.delete(jobId);
     }
   }, [fetchTestsInfo]);
+
+  const handleCreateAnswers = async (testId: string, subjectId: string, level: string, modelId: string) => {
+    const statusKey = `${testId}-${subjectId}-${level}`;
+    try {
+      setModelStatus(prev => ({
+        ...prev,
+        [statusKey]: { ...prev[statusKey], answers_status: 'creating' }
+      }));
+      const result = await createFinetunedAnswers(modelId, level, testId, subjectId);
+      if (result.error) {
+        throw new Error(result.error);
+      }
+      setModelStatus(prev => ({
+        ...prev,
+        [statusKey]: { ...prev[statusKey], answers_status: 'completed' }
+      }));
+      await fetchTestsInfo();
+    } catch (err) {
+      console.error('Error creating finetuned answers:', err);
+      setError(`파인튜닝된 답변 생성 중 오류가 발생했습니다: ${(err as Error).message}`);
+      setModelStatus(prev => ({
+        ...prev,
+        [statusKey]: { ...prev[statusKey], answers_status: 'failed' }
+      }));
+    }
+  };
 
   const renderStatus = (status: ModelStatus[string]) => {
     switch (status.status) {
@@ -176,6 +206,10 @@ const Tests: React.FC = () => {
     }
   };
 
+  const handleTestClick = (testId: string, subjectId: string, level: string) => {
+    navigate(`/tests/${testId}/${subjectId}/${level}`);
+  };
+
   if (error) {
     return <Typography color="error">{error}</Typography>;
   }
@@ -191,44 +225,59 @@ const Tests: React.FC = () => {
             <TableCell>풀이 레벨</TableCell>
             <TableCell>액션</TableCell>
             <TableCell>진행 상태</TableCell>
+            <TableCell>답변 생성</TableCell>
+            <TableCell>답변 상태</TableCell>
             <TableCell>테스트</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {testsInfo.flatMap((testInfo, index) => 
-            Object.entries(testInfo.levels).map(([level, model]) => {
-              const statusKey = `${testInfo.testId}-${testInfo.subjectId}-${level}`;
-              const status = modelStatus[statusKey] || { status: 'idle' };
-              const isModelComplete = status.status === 'succeeded' || status.status === 'failed';
-              const buttonText = model ? '모델 업데이트' : '모델 생성';
-              return (
-                <TableRow key={`${index}-${level}`}>
-                  <TableCell>{testInfo.test_month}</TableCell>
-                  <TableCell>{testInfo.subject_name}</TableCell>
-                  <TableCell>{testInfo.is_ready ? '완료' : '미완료'}</TableCell>
-                  <TableCell>{level.toUpperCase()}</TableCell>
-                  <TableCell>
-                    <Button
-                      variant="contained"
-                      disabled={!testInfo.is_ready || (!isModelComplete && status.status !== 'idle')}
-                      onClick={() => handleCreateModel(testInfo.testId, testInfo.subjectId, level)}
-                    >
-                      {buttonText}
-                    </Button>
-                  </TableCell>
-                  <TableCell>{renderStatus(status)}</TableCell>
-                  <TableCell>
-                    <Button
-                      variant="contained"
-                      disabled={!isModelComplete}
-                      onClick={() => navigate(`/tests/${model?.fine_tuned_model}`)}
-                    >
-                      테스트
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              );
-            })
+            Object.entries(testInfo.levels)
+              .filter(([level, _]) => level !== 'base') // base 레벨 제외
+              .map(([level, model]) => {
+                const statusKey = `${testInfo.testId}-${testInfo.subjectId}-${level}`;
+                const status = modelStatus[statusKey] || { status: 'idle', answers_status: 'idle' };
+                const isModelComplete = status.status === 'succeeded' || status.status === 'failed';
+                const buttonText = model ? '모델 업데이트' : '모델 생성';
+                const answerButtonText = status.answers_status === 'completed' ? '답변 업데이트' : '답변 생성';
+                return (
+                  <TableRow key={`${index}-${level}`}>
+                    <TableCell>{testInfo.test_month}</TableCell>
+                    <TableCell>{testInfo.subject_name}</TableCell>
+                    <TableCell>{testInfo.is_ready ? '완료' : '미완료'}</TableCell>
+                    <TableCell>{level.toUpperCase()}</TableCell>
+                    <TableCell>
+                      <Button
+                        variant="contained"
+                        disabled={!testInfo.is_ready || (!isModelComplete && status.status !== 'idle')}
+                        onClick={() => handleCreateModel(testInfo.testId, testInfo.subjectId, level)}
+                      >
+                        {buttonText}
+                      </Button>
+                    </TableCell>
+                    <TableCell>{renderStatus(status)}</TableCell>
+                    <TableCell>
+                      <Button
+                        variant="contained"
+                        disabled={!isModelComplete || status.answers_status === 'creating'}
+                        onClick={() => handleCreateAnswers(testInfo.testId, testInfo.subjectId, level, model?.fine_tuned_model || '')}
+                      >
+                        {answerButtonText}
+                      </Button>
+                    </TableCell>
+                    <TableCell>{status.answers_status === 'completed' ? '완료' : status.answers_status}</TableCell>
+                    <TableCell>
+                      <Button
+                        variant="contained"
+                        disabled={!isModelComplete}
+                        onClick={() => handleTestClick(testInfo.testId, testInfo.subjectId, level)}
+                      >
+                        테스트
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
           )}
         </TableBody>
       </Table>

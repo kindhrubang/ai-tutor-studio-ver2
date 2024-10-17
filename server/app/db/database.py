@@ -107,22 +107,46 @@ async def db_get_datalists():
     result = []
     for test_info in test_infos:
         test_info['levels'] = {}
-        for level in ['base', 'low', 'medium', 'high']:  # 'med'를 'medium'으로 변경
+        for level in ['low', 'medium', 'high']:
             model = await llm_models_collection.find_one(
                 {"testId": test_info['testId'], "subjectId": test_info['subjectId'], "level": level},
                 {"_id": 0, "fine_tuned_model": 1, "status": 1, "job_id": 1}
             )
+            answers_status = await check_level_answers_status(test_info['testId'], test_info['subjectId'], level)
             if model:
                 test_info['levels'][level] = {
                     "fine_tuned_model": model['fine_tuned_model'],
                     "status": model['status'],
-                    "job_id": model['job_id']
+                    "job_id": model['job_id'],
+                    "answers_status": answers_status
                 }
             else:
                 test_info['levels'][level] = None
         result.append(test_info)
     
     return json.loads(json.dumps(result, cls=JSONEncoder))
+
+async def check_level_answers_status(test_id: str, subject_id: str, level: str):
+    level_answers_collection = await get_collection("level_answers")
+    count = await level_answers_collection.count_documents({
+        "testId": int(test_id),
+        "subjectId": int(subject_id),
+        "level": level
+    })
+    
+    if count == 0:
+        return 'idle'
+    elif count < await get_total_questions_count(test_id, subject_id):
+        return 'creating'
+    else:
+        return 'completed'
+
+async def get_total_questions_count(test_id: str, subject_id: str):
+    questions_collection = await get_collection("questions")
+    return await questions_collection.count_documents({
+        "testId": int(test_id),
+        "subjectId": int(subject_id)
+    })
 
 # 기존 코드에 다음 함수를 추가합니다.
 
@@ -152,5 +176,34 @@ async def update_llm_model_status(job_id: str, status: str, fine_tuned_model: st
         {"$set": update_data}
     )
 
+async def get_system_prompt(level: str):
+    collection = await get_collection("prompts")
+    prompt = await collection.find_one({"level": level})
+    return prompt["system_prompt"]
 
+async def save_level_answer(test_id: str, subject_id: str, level: str, answer_data: dict):
+    collection = await get_collection("level_answers")
+    document = {
+        "testId": int(test_id),
+        "subjectId": int(subject_id),
+        "level": level,
+        "question_num": answer_data["question_num"],
+        "answer": answer_data["answer"],
+        "test_month": answer_data["test_month"],
+        "subject_name": answer_data["subject_name"]
+    }
+    await collection.update_one(
+        {"testId": int(test_id), "subjectId": int(subject_id), "level": level, "question_num": answer_data["question_num"]},
+        {"$set": document},
+        upsert=True
+    )
 
+async def get_level_answers(test_id: str, subject_id: str, level: str):
+    collection = await get_collection("level_answers")
+    cursor = collection.find({
+        "testId": int(test_id),
+        "subjectId": int(subject_id),
+        "level": level
+    })
+    answers = await cursor.to_list(length=None)
+    return json.loads(json.dumps(answers, cls=JSONEncoder))
