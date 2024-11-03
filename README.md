@@ -55,3 +55,5 @@ python -m uvicorn main:app --reload
 ## 기여하기
 
 프로젝트에 기여하고 싶으시다면, 이슈를 열거나 풀 리퀘스트를 보내주세요.
+
+HOW TO OPEN SERVER
